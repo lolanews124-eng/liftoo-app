@@ -1,12 +1,18 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_links/app_links.dart';
 import 'app.dart';
+import 'core/config/app_config.dart';
 import 'core/providers/providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (kDebugMode) {
+    debugPrint('[Config] apiUrl=${AppConfig.apiUrl}');
+  }
 
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 

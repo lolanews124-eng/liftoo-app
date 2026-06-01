@@ -1,9 +1,14 @@
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../features/geocode/data/geocode_repository.dart';
 import '../../shared/models/service_location_model.dart';
 
-/// GPS + reverse geocoding — no manual admin areas.
+/// GPS via Geolocator; addresses via backend geocode API (fallback: device geocoding).
 class LocationService {
+  static GeocodeRepository? _geocode;
+
+  static void useGeocode(GeocodeRepository repository) => _geocode = repository;
+
   static const defaultLat = 19.076;
   static const defaultLng = 72.8777;
   static const currentLocationId = ServiceLocationModel.currentLocationId;
@@ -30,14 +35,18 @@ class LocationService {
           timeLimit: Duration(seconds: 12),
         ),
       );
-      return _fromCoordinates(pos.latitude, pos.longitude);
+      return fromCoordinates(pos.latitude, pos.longitude, isCurrent: true);
     } catch (_) {
       return _fallbackLocation();
     }
   }
 
-  static Future<ServiceLocationModel> fromCoordinates(double lat, double lng) =>
-      _fromCoordinates(lat, lng);
+  static Future<ServiceLocationModel> fromCoordinates(
+    double lat,
+    double lng, {
+    bool isCurrent = false,
+  }) =>
+      _resolveAddress(lat, lng, isCurrent: isCurrent);
 
   static ServiceLocationModel _fallbackLocation() => ServiceLocationModel(
         id: currentLocationId,
@@ -49,7 +58,29 @@ class LocationService {
         isCurrentLocation: true,
       );
 
-  static Future<ServiceLocationModel> _fromCoordinates(double lat, double lng) async {
+  static Future<ServiceLocationModel> _resolveAddress(
+    double lat,
+    double lng, {
+    bool isCurrent = false,
+  }) async {
+    final geocode = _geocode;
+    if (geocode != null) {
+      try {
+        final place = await geocode.reverse(lat: lat, lng: lng);
+        return place.toServiceLocation(
+          id: isCurrent ? currentLocationId : null,
+          isCurrent: isCurrent,
+        );
+      } catch (_) {}
+    }
+    return _deviceReverseGeocode(lat, lng, isCurrent: isCurrent);
+  }
+
+  static Future<ServiceLocationModel> _deviceReverseGeocode(
+    double lat,
+    double lng, {
+    bool isCurrent = false,
+  }) async {
     try {
       final places = await placemarkFromCoordinates(lat, lng);
       if (places.isEmpty) {
@@ -60,7 +91,7 @@ class LocationService {
           city: '',
           lat: lat,
           lng: lng,
-          isCurrentLocation: true,
+          isCurrentLocation: isCurrent,
         );
       }
       final p = places.first;
@@ -85,13 +116,13 @@ class LocationService {
       ].whereType<String>().join(', ');
 
       return ServiceLocationModel(
-        id: currentLocationId,
+        id: isCurrent ? currentLocationId : 'geo-$lat-$lng',
         name: label,
         address: formatted.isNotEmpty ? formatted : label,
         city: locality,
         lat: lat,
         lng: lng,
-        isCurrentLocation: true,
+        isCurrentLocation: isCurrent,
       );
     } catch (_) {
       return ServiceLocationModel(
@@ -101,7 +132,7 @@ class LocationService {
         city: '',
         lat: lat,
         lng: lng,
-        isCurrentLocation: true,
+        isCurrentLocation: isCurrent,
       );
     }
   }

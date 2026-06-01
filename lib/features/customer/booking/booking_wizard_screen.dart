@@ -10,7 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../../shared/models/service_location_model.dart';
 import '../../../shared/widgets/gradient_button.dart';
-import '../../../shared/widgets/maps_placeholder.dart';
+import '../../../shared/widgets/liftoo_map_view.dart';
 import '../home/home_sheets.dart';
 import '../home/quick_book_draft.dart';
 
@@ -56,7 +56,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
       }
     }
     if (draft?.lat != null && draft?.lng != null) {
-      final loc = await LocationService.fromCoordinates(draft!.lat!, draft.lng!);
+      final loc = await LocationService.fromCoordinates(draft!.lat!, draft.lng!, isCurrent: false);
       if (mounted) {
         setState(() {
           _selectedLocation = loc;
@@ -190,7 +190,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
   }
 
   Future<void> _pickLocation() async {
-    final picked = await showLocationPicker(context, _selectedLocation, savedLocations: _savedLocations);
+    final picked = await showLocationPicker(context, ref, _selectedLocation, savedLocations: _savedLocations);
     if (picked != null) setState(() => _selectedLocation = picked);
   }
 
@@ -473,10 +473,15 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
       children: [
         const Text('Pickup location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         const SizedBox(height: 16),
-        MapsPlaceholder(
-          title: loc.displayName,
-          subtitle: loc.city.isNotEmpty ? '${loc.address}, ${loc.city}' : loc.address,
+        GestureDetector(
           onTap: _pickLocation,
+          child: LiftooMapView(
+            lat: loc.lat,
+            lng: loc.lng,
+            title: loc.displayName,
+            subtitle: loc.city.isNotEmpty ? '${loc.address}, ${loc.city}' : loc.address,
+            height: 180,
+          ),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(

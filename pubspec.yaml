@@ -23,6 +23,7 @@ dependencies:
   shimmer: ^3.0.0
   image_picker: ^1.1.2
   geolocator: ^13.0.4
+  google_maps_flutter: ^2.12.1
   app_links: ^6.4.0
   connectivity_plus: ^6.1.4
   permission_handler: ^12.0.2

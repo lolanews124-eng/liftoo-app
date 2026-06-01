@@ -3,7 +3,7 @@ import '../../../core/dev/dev_data_store.dart';
 
 /// Offline demo login when API is not running (debug only).
 class DevAuthMock {
-  static const enabled = bool.fromEnvironment('DEV_MOCK_AUTH', defaultValue: true);
+  static const enabled = bool.fromEnvironment('DEV_MOCK_AUTH', defaultValue: false);
 
   static bool get isEnabled => enabled;
 

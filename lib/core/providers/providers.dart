@@ -14,6 +14,7 @@ import '../../features/support/data/support_repository.dart';
 import '../../features/chat/data/chat_repository.dart';
 import '../../features/promos/data/promos_repository.dart';
 import '../../features/payouts/data/payouts_repository.dart';
+import '../../features/geocode/data/geocode_repository.dart';
 
 final tokenStorageProvider = Provider((ref) => TokenStorage());
 
@@ -30,6 +31,10 @@ final apiClientProvider = Provider((ref) {
     ref.watch(tokenStorageProvider),
     ref.watch(connectivityServiceProvider),
   );
+});
+
+final geocodeRepositoryProvider = Provider((ref) {
+  return GeocodeRepository(ref.watch(apiClientProvider));
 });
 
 final socketServiceProvider = Provider((ref) => SocketService());

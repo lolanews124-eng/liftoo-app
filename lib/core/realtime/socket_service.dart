@@ -7,7 +7,7 @@ class SocketService {
   void connect(String token) {
     disconnect();
     _socket = io.io(
-      '${AppConfig.socketUrl}/realtime',
+      '${AppConfig.apiUrl}/realtime',
       io.OptionBuilder()
           .setTransports(['websocket'])
           .setAuth({'token': token})

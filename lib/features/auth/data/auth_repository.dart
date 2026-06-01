@@ -33,15 +33,10 @@ class AuthRepository {
   }
 
   Future<void> resendEmailOtp(String email, String password) async {
-    try {
-      await _api.post('/api/v1/auth/otp/resend', data: {
-        'email': email.trim(),
-        'password': password,
-      });
-    } catch (e) {
-      if (DevAuthMock.isEnabled && _isConnectionError(e)) return;
-      rethrow;
-    }
+    await _api.post('/api/v1/auth/otp/resend', data: {
+      'email': email.trim(),
+      'password': password,
+    });
   }
 
   Future<({UserModel user, bool isNew})> verifyEmailOtp(

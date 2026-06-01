@@ -1,67 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../core/location/location_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/service_location_model.dart';
 import 'booking_duration_options.dart';
 
 export 'booking_duration_options.dart';
-
-Future<ServiceLocationModel?> showLocationPicker(
-  BuildContext context,
-  ServiceLocationModel? current, {
-  List<ServiceLocationModel> savedLocations = const [],
-}) {
-  return showModalBottomSheet<ServiceLocationModel>(
-    context: context,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: Text('Choose pickup location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          ),
-          ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: AppColors.primaryLight,
-              child: Icon(Icons.my_location, color: AppColors.primary, size: 20),
-            ),
-            title: const Text('Use current location', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: const Text('GPS based — like Swiggy', style: TextStyle(fontSize: 12)),
-            onTap: () async {
-              final loc = await LocationService.resolveCurrentLocation();
-              if (ctx.mounted) Navigator.pop(ctx, loc);
-            },
-          ),
-          if (savedLocations.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
-              child: Text('Saved addresses', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textSecondary)),
-            ),
-            ...savedLocations.map((loc) {
-              final selected = current?.id == loc.id;
-              return ListTile(
-                leading: Icon(
-                  selected ? Icons.radio_button_checked : Icons.home_outlined,
-                  color: selected ? AppColors.primary : AppColors.textSecondary,
-                ),
-                title: Text(loc.name, style: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
-                subtitle: Text(loc.address, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-                onTap: () => Navigator.pop(ctx, loc),
-              );
-            }),
-          ],
-          const SizedBox(height: 8),
-        ],
-      ),
-    ),
-  );
-}
+export 'location_picker_sheet.dart' show showLocationPicker;
 
 void showSavedAddressesSheet(
   BuildContext context, {

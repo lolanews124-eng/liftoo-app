@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 import '../storage/token_storage.dart';
 import 'app_exception.dart';
@@ -13,11 +14,19 @@ class ApiClient {
   ApiClient(this._storage, [ConnectivityService? connectivity])
       : _connectivity = connectivity ?? ConnectivityService() {
     dio = Dio(BaseOptions(
-      baseUrl: AppConfig.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 4),
+      baseUrl: AppConfig.apiUrl,
+      connectTimeout: Duration(seconds: kDebugMode ? 30 : 4),
+      receiveTimeout: Duration(seconds: kDebugMode ? 30 : 4),
       headers: {'Content-Type': 'application/json'},
     ));
+
+    if (kDebugMode) {
+      dio.interceptors.add(LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+        logPrint: (o) => debugPrint('[API] $o'),
+      ));
+    }
 
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
@@ -47,7 +56,7 @@ class ApiClient {
           if (refresh != null) {
             try {
               final res = await Dio().post(
-                '${AppConfig.apiBaseUrl}/api/v1/auth/refresh',
+                '${AppConfig.apiUrl}/api/v1/auth/refresh',
                 data: {'refreshToken': refresh},
               );
               final data = res.data['data'] ?? res.data;

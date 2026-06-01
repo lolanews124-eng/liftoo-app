@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/location/location_service.dart';
+import '../../../shared/models/service_location_model.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/network_error_state.dart';
 import '../../../shared/widgets/empty_state.dart';
-import '../../../shared/widgets/maps_placeholder.dart';
+import '../home/location_picker_sheet.dart';
+import '../../../shared/widgets/liftoo_map_view.dart';
 import '../../../shared/widgets/skeleton_loader.dart';
 import '../../../shared/models/address_model.dart';
 import '../../../shared/widgets/gradient_button.dart';
@@ -47,18 +48,18 @@ class _AddressesScreenState extends ConsumerState<AddressesScreen> {
   }
 
   Future<void> _addAddress() async {
-    final labelCtrl = TextEditingController();
-    final addrCtrl = TextEditingController();
-    double lat = LocationService.defaultLat;
-    double lng = LocationService.defaultLng;
+    ServiceLocationModel? picked;
     try {
-      final loc = await LocationService.resolveCurrentLocation();
-      lat = loc.lat;
-      lng = loc.lng;
-      if (loc.address.isNotEmpty && !loc.address.startsWith('Enable GPS')) {
-        addrCtrl.text = loc.address;
-      }
+      picked = await showLocationPicker(context, ref, null, savedLocations: const []);
     } catch (_) {}
+
+    if (!mounted || picked == null) return;
+    final location = picked;
+
+    final labelCtrl = TextEditingController(text: location.name);
+    final addrCtrl = TextEditingController(text: location.address);
+    final lat = location.lat;
+    final lng = location.lng;
 
     if (!mounted) return;
     final ok = await showDialog<bool>(
@@ -70,9 +71,10 @@ class _AddressesScreenState extends ConsumerState<AddressesScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              MapsPlaceholder(
-                title: 'Your location',
-                subtitle: 'Address pre-filled from GPS — edit if needed',
+              LiftooMapView(
+                lat: lat,
+                lng: lng,
+                title: location.displayName,
                 height: 140,
               ),
               const SizedBox(height: 12),
@@ -85,6 +87,7 @@ class _AddressesScreenState extends ConsumerState<AddressesScreen> {
                 controller: addrCtrl,
                 scrollPadding: keyboardScrollPadding(ctx),
                 decoration: const InputDecoration(labelText: 'Full address'),
+                maxLines: 2,
               ),
             ],
           ),

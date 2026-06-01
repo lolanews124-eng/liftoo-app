@@ -33,6 +33,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   String _service = 'Bag Carry';
   String? _categorySlug = 'bag_carry';
   int _durationMin = 60;
+  String? _availabilityMessage;
 
   @override
   void initState() {
@@ -63,7 +64,17 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
         _selectedLocation = gps;
         _locationLoading = false;
       });
+      _loadAvailabilitySummary(gps.lat, gps.lng);
     }
+  }
+
+  Future<void> _loadAvailabilitySummary(double lat, double lng) async {
+    try {
+      final summary = await ref.read(bookingRepositoryProvider).getAvailabilitySummary(lat: lat, lng: lng);
+      if (mounted) {
+        setState(() => _availabilityMessage = summary['message'] as String?);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadAddresses() async {
@@ -289,6 +300,20 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                     child: const Text('⚡ Instant booking', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11)),
                   ),
                   const SizedBox(height: 10),
+                  if (_availabilityMessage != null && _availabilityMessage!.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        _availabilityMessage!,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   const Text(
                     'Shop without\ncarrying bags',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, height: 1.2, color: AppColors.charcoal),
@@ -340,7 +365,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
           ),
         ),
         SizedBox(
-          height: 92,
+          height: 100,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -356,7 +381,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   duration: const Duration(milliseconds: 200),
                   width: 96,
                   margin: const EdgeInsets.only(right: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -374,13 +399,14 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(7),
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(10)),
                         child: Icon(_iconFor(c.slug), color: color, size: 18),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         label,
                         textAlign: TextAlign.center,
@@ -388,13 +414,19 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 11,
+                          height: 1.1,
                           fontWeight: FontWeight.w700,
                           color: selected ? color : AppColors.charcoal,
                         ),
                       ),
                       Text(
                         '₹${c.baseRate.toInt()}/hr',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color.withValues(alpha: 0.85)),
+                        style: TextStyle(
+                          fontSize: 9,
+                          height: 1.1,
+                          fontWeight: FontWeight.w600,
+                          color: color.withValues(alpha: 0.85),
+                        ),
                       ),
                     ],
                   ),
@@ -424,10 +456,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
           onSelected: (_) async {
             setState(() => _locationLoading = true);
             final gps = await LocationService.resolveCurrentLocation();
-            if (mounted) setState(() {
-              _selectedLocation = gps;
-              _locationLoading = false;
-            });
+            if (mounted) {
+              setState(() {
+                _selectedLocation = gps;
+                _locationLoading = false;
+              });
+              _loadAvailabilitySummary(gps.lat, gps.lng);
+            }
           },
           selectedColor: AppColors.primaryLight,
           checkmarkColor: AppColors.primary,
@@ -508,8 +543,11 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             Row(
               children: [
                 Expanded(child: _quickField(Icons.location_on_outlined, 'Location', _locationLabel, () async {
-                  final picked = await showLocationPicker(context, _selectedLocation, savedLocations: _savedLocations);
-                  if (picked != null) setState(() => _selectedLocation = picked);
+                  final picked = await showLocationPicker(context, ref, _selectedLocation, savedLocations: _savedLocations);
+                  if (picked != null) {
+                    setState(() => _selectedLocation = picked);
+                    _loadAvailabilitySummary(picked.lat, picked.lng);
+                  }
                 })),
                 const SizedBox(width: 10),
                 Expanded(child: _quickField(Icons.shopping_bag_outlined, 'Service', _service, () => _openBooking(_draft))),
