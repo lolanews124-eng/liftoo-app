@@ -1,0 +1,287 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../core/location/location_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../shared/models/service_location_model.dart';
+import 'booking_duration_options.dart';
+
+export 'booking_duration_options.dart';
+
+Future<ServiceLocationModel?> showLocationPicker(
+  BuildContext context,
+  ServiceLocationModel? current, {
+  List<ServiceLocationModel> savedLocations = const [],
+}) {
+  return showModalBottomSheet<ServiceLocationModel>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Text('Choose pickup location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          ),
+          ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: AppColors.primaryLight,
+              child: Icon(Icons.my_location, color: AppColors.primary, size: 20),
+            ),
+            title: const Text('Use current location', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: const Text('GPS based — like Swiggy', style: TextStyle(fontSize: 12)),
+            onTap: () async {
+              final loc = await LocationService.resolveCurrentLocation();
+              if (ctx.mounted) Navigator.pop(ctx, loc);
+            },
+          ),
+          if (savedLocations.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: Text('Saved addresses', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textSecondary)),
+            ),
+            ...savedLocations.map((loc) {
+              final selected = current?.id == loc.id;
+              return ListTile(
+                leading: Icon(
+                  selected ? Icons.radio_button_checked : Icons.home_outlined,
+                  color: selected ? AppColors.primary : AppColors.textSecondary,
+                ),
+                title: Text(loc.name, style: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+                subtitle: Text(loc.address, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                onTap: () => Navigator.pop(ctx, loc),
+              );
+            }),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+}
+
+void showSavedAddressesSheet(
+  BuildContext context, {
+  required List<ServiceLocationModel> savedLocations,
+  VoidCallback? onManage,
+  void Function(ServiceLocationModel)? onSelect,
+}) {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Text('Saved addresses', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          ),
+          if (savedLocations.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('No saved addresses yet. Add one from Profile → Saved addresses.', style: TextStyle(color: AppColors.textSecondary)),
+            )
+          else
+            ...savedLocations.map(
+              (loc) => ListTile(
+                leading: const Icon(Icons.location_on_outlined, color: AppColors.primary),
+                title: Text(loc.name),
+                subtitle: Text(loc.address, maxLines: 2, overflow: TextOverflow.ellipsis),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onSelect?.call(loc);
+                },
+              ),
+            ),
+          if (onManage != null)
+            ListTile(
+              leading: const Icon(Icons.edit_location_alt_outlined, color: AppColors.primary),
+              title: const Text('Manage saved addresses'),
+              onTap: () {
+                Navigator.pop(ctx);
+                onManage();
+              },
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<int?> showDurationPicker(BuildContext context, int currentMin) {
+  return showModalBottomSheet<int>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Text('Select duration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          ),
+          ...BookingDurationOptions.options.map(
+            (o) => ListTile(
+              title: Text(o.label),
+              trailing: o.minutes == currentMin ? const Icon(Icons.check, color: AppColors.primary) : null,
+              onTap: () => Navigator.pop(ctx, o.minutes),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void showSupportSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Support', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 16),
+            _supportTile(ctx, Icons.phone, 'Call us', '1800-123-4567', () => _launchTel('18001234567')),
+            _supportTile(ctx, Icons.email_outlined, 'Email', 'help@liftoo.in', () => _launchEmail('help@liftoo.in')),
+            _supportTile(ctx, Icons.chat_outlined, 'WhatsApp', 'Chat with support', () => _launchWhatsApp('919876543210')),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+void showHelpSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.55,
+      minChildSize: 0.4,
+      maxChildSize: 0.85,
+      builder: (_, scroll) => SafeArea(
+        child: ListView(
+          controller: scroll,
+          padding: const EdgeInsets.all(20),
+          children: const [
+            Text('Help Center', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            SizedBox(height: 16),
+            _FaqTile(
+              q: 'What is Liftoo?',
+              a: 'Liftoo helps you book trained shopping assistants for malls, markets, and exhibitions.',
+            ),
+            _FaqTile(
+              q: 'How do I cancel a booking?',
+              a: 'Open the active booking from My Bookings and tap Cancel.',
+            ),
+            _FaqTile(
+              q: 'How does payment work?',
+              a: 'You can pay using wallet, UPI, or cash.',
+            ),
+            _FaqTile(
+              q: 'How does Refer & Earn work?',
+              a: 'Share your referral code. When a friend completes their first booking, you earn ₹100 in your wallet.',
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _supportTile(BuildContext ctx, IconData icon, String title, String subtitle, VoidCallback onTap) {
+  return ListTile(
+    leading: CircleAvatar(
+      backgroundColor: AppColors.primaryLight,
+      child: Icon(icon, color: AppColors.primary, size: 20),
+    ),
+    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+    subtitle: Text(subtitle),
+    trailing: const Icon(Icons.chevron_right),
+    onTap: onTap,
+  );
+}
+
+Future<void> callAssistant([String phone = '9876543211']) => _launchTel(phone);
+
+Future<void> _launchTel(String phone) async {
+  final uri = Uri.parse('tel:$phone');
+  if (await canLaunchUrl(uri)) await launchUrl(uri);
+}
+
+Future<void> _launchEmail(String email) async {
+  final uri = Uri.parse('mailto:$email');
+  if (await canLaunchUrl(uri)) await launchUrl(uri);
+}
+
+Future<void> _launchWhatsApp(String phone) async {
+  final uri = Uri.parse('https://wa.me/$phone');
+  if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+
+class _FaqTile extends StatefulWidget {
+  final String q;
+  final String a;
+
+  const _FaqTile({required this.q, required this.a});
+
+  @override
+  State<_FaqTile> createState() => _FaqTileState();
+}
+
+class _FaqTileState extends State<_FaqTile> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: () => setState(() => _open = !_open),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: Text(widget.q, style: const TextStyle(fontWeight: FontWeight.w700))),
+                    Icon(_open ? Icons.expand_less : Icons.expand_more),
+                  ],
+                ),
+                if (_open) ...[
+                  const SizedBox(height: 8),
+                  Text(widget.a, style: const TextStyle(color: AppColors.textSecondary, height: 1.45)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

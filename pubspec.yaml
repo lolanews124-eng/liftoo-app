@@ -1,0 +1,56 @@
+name: liftoo_mobile
+description: Liftoo - On-demand personal shopping assistant
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.8.1
+  dio: ^5.8.0+1
+  flutter_secure_storage: ^9.2.4
+  socket_io_client: ^3.0.2
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.2
+  cached_network_image: ^3.4.1
+  intl: ^0.20.2
+  url_launcher: ^6.3.1
+  shimmer: ^3.0.0
+  image_picker: ^1.1.2
+  geolocator: ^13.0.4
+  app_links: ^6.4.0
+  connectivity_plus: ^6.1.4
+  permission_handler: ^12.0.2
+  geocoding: ^4.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/liftoo_logo.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/images/liftoo_logo.png
+  remove_alpha_ios: true
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/images/liftoo_logo.png
+  android_12:
+    color: "#FFFFFF"
+    image: assets/images/liftoo_logo.png
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
