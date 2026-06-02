@@ -6,6 +6,10 @@ import 'core/bootstrap/geocode_bootstrap.dart';
 import 'core/layout/mobile_viewport.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/realtime/in_app_notification_banner.dart';
+import 'core/realtime/notification_listener.dart';
+import 'features/assistant/requests/assistant_request_listener.dart';
+import 'features/auth/providers/auth_provider.dart';
 import 'shared/widgets/no_internet_banner.dart';
 
 
@@ -21,8 +25,8 @@ class LiftooApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
 
     final router = ref.watch(routerProvider);
-
-
+    final isAssistant = ref.watch(authProvider.select((s) => s.user?.activeRole == 'assistant'));
+    final loggedIn = ref.watch(authProvider.select((s) => s.user != null));
 
     return GeocodeBootstrap(
       child: MaterialApp.router(
@@ -31,14 +35,22 @@ class LiftooApp extends ConsumerWidget {
         theme: AppTheme.light,
         routerConfig: router,
         builder: (context, child) {
-          return AppScrollWrapper(
+          Widget body = AppScrollWrapper(
             child: Column(
               children: [
                 const NoInternetBanner(),
+                const InAppNotificationBanner(),
                 Expanded(child: child ?? const SizedBox.shrink()),
               ],
             ),
           );
+          if (loggedIn) {
+            body = NotificationRealtimeListener(child: body);
+          }
+          if (isAssistant) {
+            body = AssistantRequestListener(child: body);
+          }
+          return body;
         },
       ),
     );

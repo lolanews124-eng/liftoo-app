@@ -321,7 +321,7 @@ class _AssistantVerificationScreenState extends ConsumerState<AssistantVerificat
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF1A1A1A), Color(0xFF2D2D2D)]),
+        gradient: const LinearGradient(colors: [AppColors.navy, Color(0xFF002A5C)]),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(

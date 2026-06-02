@@ -9,6 +9,7 @@ import '../../../shared/models/user_model.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/role_switch_guard.dart';
 import '../shared/assistant_online_confirm.dart';
 import '../shared/assistant_online_service.dart';
 
@@ -22,6 +23,7 @@ class AssistantProfileScreen extends ConsumerStatefulWidget {
 class _AssistantProfileScreenState extends ConsumerState<AssistantProfileScreen> {
   VerificationSummaryModel? _summary;
   bool _loadingSummary = true;
+  double _settlementBalance = 0;
 
   @override
   void initState() {
@@ -33,7 +35,13 @@ class _AssistantProfileScreenState extends ConsumerState<AssistantProfileScreen>
     setState(() => _loadingSummary = true);
     try {
       final bundle = await ref.read(assistantVerificationRepositoryProvider).getVerification();
-      if (mounted) setState(() => _summary = bundle.summary);
+      final wallet = await ref.read(walletRepositoryProvider).getWallet();
+      if (mounted) {
+        setState(() {
+          _summary = bundle.summary;
+          _settlementBalance = (wallet['balance'] as num?)?.toDouble() ?? 0;
+        });
+      }
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loadingSummary = false);
@@ -72,21 +80,46 @@ class _AssistantProfileScreenState extends ConsumerState<AssistantProfileScreen>
             _buildProfileHeader(user, ap),
             const SizedBox(height: 16),
             _buildOnlineCard(isOnline),
+            const SizedBox(height: 12),
+            _buildSettlementWalletCard(context),
             const SizedBox(height: 16),
             _buildVerificationEntry(summary),
             const SizedBox(height: 20),
             if (user?.hasCustomer == true)
               LiftooCard(
-                onTap: () async {
-                  await ref.read(authProvider.notifier).setRole(AppRole.customer);
-                  if (context.mounted) context.go('/customer');
-                },
-                child: const Row(
+                onTap: isOnline
+                    ? () => showRoleSwitchBlocked(
+                          context,
+                          'You are online as an assistant. Turn off online mode first, then switch to customer mode.',
+                        )
+                    : () async {
+                        final ok = await trySwitchRole(context, ref, AppRole.customer);
+                        if (ok && context.mounted) context.go('/customer');
+                      },
+                child: Row(
                   children: [
-                    Icon(Icons.swap_horiz, color: AppColors.primary),
-                    SizedBox(width: 12),
-                    Expanded(child: Text('Switch to Customer Mode', style: TextStyle(fontWeight: FontWeight.w700))),
-                    Icon(Icons.chevron_right),
+                    Icon(Icons.swap_horiz, color: isOnline ? AppColors.textSecondary : AppColors.primary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Switch to Customer Mode',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: isOnline ? AppColors.textSecondary : AppColors.charcoal,
+                            ),
+                          ),
+                          if (isOnline)
+                            const Text(
+                              'Go offline first',
+                              style: TextStyle(fontSize: 11, color: AppColors.warning),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: isOnline ? AppColors.textSecondary : null),
                   ],
                 ),
               ),
@@ -114,6 +147,39 @@ class _AssistantProfileScreenState extends ConsumerState<AssistantProfileScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSettlementWalletCard(BuildContext context) {
+    return LiftooCard(
+      onTap: () async {
+        final added = await context.push<bool>('/customer/wallet/add', extra: _settlementBalance);
+        if (added == true && mounted) _loadSummary();
+      },
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.account_balance_wallet_outlined, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Settlement wallet', style: TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  '₹${_settlementBalance.toStringAsFixed(0)} • Required for cash payments',
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.add_circle_outline, color: AppColors.primary),
+        ],
       ),
     );
   }

@@ -21,6 +21,25 @@ class ServiceLocationModel {
 
   String get displayName => city.isNotEmpty ? '$name, $city' : name;
 
+  ServiceLocationModel copyWith({
+    String? id,
+    String? name,
+    String? address,
+    String? city,
+    double? lat,
+    double? lng,
+    bool? isCurrentLocation,
+  }) =>
+      ServiceLocationModel(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        address: address ?? this.address,
+        city: city ?? this.city,
+        lat: lat ?? this.lat,
+        lng: lng ?? this.lng,
+        isCurrentLocation: isCurrentLocation ?? this.isCurrentLocation,
+      );
+
   factory ServiceLocationModel.fromJson(Map<String, dynamic> json) => ServiceLocationModel(
         id: json['id'] as String,
         name: json['name'] as String,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
-import '../../features/assistant/requests/assistant_request_listener.dart';
 import 'back_navigation.dart';
 
 class ShellScaffold extends StatelessWidget {
@@ -30,7 +29,7 @@ class ShellScaffold extends StatelessWidget {
       localTabIndex: _localIndex,
       child: Scaffold(
       backgroundColor: Colors.white,
-      body: navigationShell,
+      body: SafeArea(bottom: false, child: navigationShell),
       extendBody: true,
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/customer/booking'),
@@ -101,10 +100,9 @@ class ShellScaffold extends StatelessWidget {
       navigationShell: navigationShell,
       homeBranchIndex: _branchOffset,
       localTabIndex: _localIndex,
-      child: AssistantRequestListener(
-        child: Scaffold(
+      child: Scaffold(
           backgroundColor: Colors.white,
-          body: navigationShell,
+          body: SafeArea(bottom: false, child: navigationShell),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _localIndex,
             onDestinationSelected: (i) => navigationShell.goBranch(_branchOffset + i),
@@ -136,7 +134,6 @@ class ShellScaffold extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }

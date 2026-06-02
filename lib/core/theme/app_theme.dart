@@ -12,6 +12,8 @@ class AppTheme {
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         primary: AppColors.primary,
+        onPrimary: Colors.white,
+        secondary: AppColors.navy,
         surface: AppColors.surface,
         brightness: Brightness.light,
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/layout/screen_safe_padding.dart';
 import '../../../core/legal/legal_links.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/theme/app_colors.dart';
@@ -9,6 +10,7 @@ import '../home/home_sheets.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/role_switch_guard.dart';
 
 class CustomerProfileScreen extends ConsumerStatefulWidget {
   const CustomerProfileScreen({super.key});
@@ -21,8 +23,8 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
   bool _updatingAvatar = false;
 
   Future<void> _switchRole(BuildContext context, AppRole role) async {
-    await ref.read(authProvider.notifier).setRole(role);
-    if (!context.mounted) return;
+    final ok = await trySwitchRole(context, ref, role);
+    if (!ok || !context.mounted) return;
     context.go(role == AppRole.assistant ? '/assistant' : '/customer');
   }
 
@@ -50,7 +52,7 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: shellScrollPadding(context, top: 8),
         children: [
           Center(
             child: Column(

@@ -48,6 +48,9 @@ class BookingModel {
   final String? distanceKm;
   final BookingSearchAvailability? searchAvailability;
   final BookingTrackingModel? tracking;
+  final String? paymentConfirmOtp;
+  final double? assistantEarningAmount;
+  final double? companyShareAmount;
 
   const BookingModel({
     required this.id,
@@ -72,6 +75,9 @@ class BookingModel {
     this.distanceKm,
     this.searchAvailability,
     this.tracking,
+    this.paymentConfirmOtp,
+    this.assistantEarningAmount,
+    this.companyShareAmount,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -106,13 +112,30 @@ class BookingModel {
       tracking: json['tracking'] != null
           ? BookingTrackingModel.fromJson(json['tracking'] as Map<String, dynamic>)
           : null,
+      paymentConfirmOtp: json['paymentConfirmOtp'] as String?,
+      assistantEarningAmount: (json['assistantEarningAmount'] as num?)?.toDouble(),
+      companyShareAmount: (json['companyShareAmount'] as num?)?.toDouble(),
     );
+  }
+
+  bool get isPaymentPending {
+    if (status != 'completed') return false;
+    if (payment == null) return true;
+    return payment!['status'] != 'completed';
+  }
+
+  bool get isCashAwaitingCustomerConfirm {
+    if (payment?['method'] != 'cash') return false;
+    return payment!['cashCollectedAt'] != null && !isPaid;
   }
 
   bool get isPaid {
     if (payment == null) return false;
     final status = payment!['status'] as String?;
-    return status == 'completed';
+    if (status == 'completed') return true;
+    // Legacy rows that only stored paidAt without status.
+    if (status != 'pending' && payment!['paidAt'] != null) return true;
+    return false;
   }
   bool get hasServiceReview => rating != null;
   bool get hasAppReview => appReview != null;

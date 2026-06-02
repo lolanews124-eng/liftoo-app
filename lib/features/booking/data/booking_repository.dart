@@ -4,6 +4,7 @@ import '../../../core/dev/dev_mock.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../shared/models/booking_model.dart';
+import '../../../shared/models/nearby_assistant_model.dart';
 import '../../../shared/models/review_models.dart';
 
 class BookingRepository {
@@ -33,12 +34,18 @@ class BookingRepository {
         },
       );
 
-  Future<List<dynamic>> getNearbyAssistants({double? lat, double? lng}) => _resolve(
-        () => _api.get<List<dynamic>>('/api/v1/assistants/nearby', query: {
-          if (lat != null) 'lat': lat,
-          if (lng != null) 'lng': lng,
-        }),
-        () => [DevDataStore.assistantSnapshot()],
+  Future<List<NearbyAssistantModel>> getNearbyAssistants({required double lat, required double lng}) => _resolve(
+        () async {
+          final data = await _api.get<List<dynamic>>('/api/v1/assistants/nearby', query: {'lat': lat, 'lng': lng});
+          return data
+              .map((e) => NearbyAssistantModel.fromJson(Map<String, dynamic>.from(e as Map)))
+              .where((a) => a.hasCoordinates)
+              .toList();
+        },
+        () => DevDataStore.instance
+            .getNearbyAssistants(lat, lng)
+            .map((e) => NearbyAssistantModel.fromJson(e))
+            .toList(),
       );
 
   Future<BookingModel> createBooking(Map<String, dynamic> body) => _resolve(
@@ -65,7 +72,7 @@ class BookingRepository {
           });
           return data.map((e) => BookingModel.fromJson(e as Map<String, dynamic>)).toList();
         },
-        () => DevDataStore.instance.getBookings(status: status),
+        () => DevDataStore.instance.getBookings(status: status, asRole: asRole),
       );
 
   Future<List<BookingModel>> getNearbyRequests() => _resolve(
@@ -142,12 +149,36 @@ class BookingRepository {
         () => DevDataStore.instance.verifyServiceOtp(id, otp),
       );
 
-  Future<BookingModel> completeBooking(String id) => _resolve(
+  Future<({BookingModel booking, double? assistantEarning, bool requiresPayment})> completeBooking(String id) =>
+      _resolve(
         () async {
           final data = await _api.post<Map<String, dynamic>>('/api/v1/bookings/$id/complete');
-          return BookingModel.fromJson(data);
+          final bookingJson = data['booking'] is Map
+              ? Map<String, dynamic>.from(data['booking'] as Map)
+              : Map<String, dynamic>.from(data);
+          if (data['paymentConfirmOtp'] != null) {
+            bookingJson['paymentConfirmOtp'] = data['paymentConfirmOtp'];
+          }
+          if (data['assistantEarning'] != null) {
+            bookingJson['assistantEarningAmount'] = data['assistantEarning'];
+          }
+          if (data['companyShareAmount'] != null) {
+            bookingJson['companyShareAmount'] = data['companyShareAmount'];
+          }
+          return (
+            booking: BookingModel.fromJson(bookingJson),
+            assistantEarning: (data['assistantEarning'] as num?)?.toDouble(),
+            requiresPayment: data['requiresPayment'] == true,
+          );
         },
-        () => DevDataStore.instance.completeService(id),
+        () {
+          final b = DevDataStore.instance.completeService(id);
+          return (
+            booking: b,
+            assistantEarning: b.assistantEarningAmount ?? b.serviceFee * 0.8,
+            requiresPayment: true,
+          );
+        },
       );
 
   Future<BookingModel> cancelBooking(String id, {required String reason, String? note}) => _resolve(
@@ -179,6 +210,32 @@ class BookingRepository {
         () {
           BookingFlowCache.instance.markPaid(id);
           return DevDataStore.instance.payBooking(id, method);
+        },
+      );
+
+  Future<BookingModel> markCashCollected(String bookingId) => _resolve(
+        () async {
+          final data = await _api.post<Map<String, dynamic>>('/api/v1/bookings/$bookingId/cash/collect');
+          final bookingJson = data['booking'] is Map
+              ? Map<String, dynamic>.from(data['booking'] as Map)
+              : Map<String, dynamic>.from(data);
+          return BookingModel.fromJson(bookingJson);
+        },
+        () => DevDataStore.instance.markCashCollected(bookingId),
+      );
+
+  Future<PaymentResultModel> confirmCashPayment(String bookingId, String otp) => _resolve(
+        () async {
+          final data = await _api.post<Map<String, dynamic>>(
+            '/api/v1/bookings/$bookingId/cash/confirm',
+            data: {'otp': otp},
+          );
+          BookingFlowCache.instance.markPaid(bookingId);
+          return PaymentResultModel.fromJson(data);
+        },
+        () {
+          BookingFlowCache.instance.markPaid(bookingId);
+          return DevDataStore.instance.confirmCashPayment(bookingId, otp);
         },
       );
 }

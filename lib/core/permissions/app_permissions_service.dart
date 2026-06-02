@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:permission_handler/permission_handler.dart';
 
-/// Requests every runtime permission once when the app opens (splash).
+/// Requests every runtime permission once when the app opens (cold start).
 class AppPermissionsService {
   static var _requested = false;
 

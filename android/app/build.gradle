@@ -10,6 +10,22 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def resolveMapsApiKey = {
+    def envFile = rootProject.file("../../backend/.env")
+    if (!envFile.exists()) return ""
+    def key = ""
+    envFile.eachLine { line ->
+        def trimmed = line.trim()
+        if (trimmed.startsWith("GOOGLE_MAPS_API_KEY=")) {
+            key = trimmed.substring("GOOGLE_MAPS_API_KEY=".length()).trim()
+            if (key.startsWith('"') && key.endsWith('"')) {
+                key = key.substring(1, key.length() - 1)
+            }
+        }
+    }
+    return key
+}
+
 android {
     namespace = "com.liftoo.liftoo_mobile"
     compileSdk = flutter.compileSdkVersion
@@ -39,6 +55,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders += [googleMapsApiKey: resolveMapsApiKey()]
     }
 
     buildTypes {

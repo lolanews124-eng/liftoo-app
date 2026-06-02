@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
 
 class MapsPlaceholder extends StatelessWidget {
@@ -7,6 +6,7 @@ class MapsPlaceholder extends StatelessWidget {
   final String? subtitle;
   final double height;
   final VoidCallback? onTap;
+  final bool showComingSoonBadge;
 
   const MapsPlaceholder({
     super.key,
@@ -14,6 +14,7 @@ class MapsPlaceholder extends StatelessWidget {
     this.subtitle,
     this.height = 200,
     this.onTap,
+    this.showComingSoonBadge = true,
   });
 
   @override
@@ -73,9 +74,7 @@ class MapsPlaceholder extends StatelessWidget {
                           ],
                         ),
                         child: const Icon(Icons.location_on, color: Colors.white, size: 28),
-                      )
-                          .animate(onPlay: (c) => c.repeat(reverse: true))
-                          .moveY(begin: 0, end: -6, duration: 1200.ms, curve: Curves.easeInOut),
+                      ),
                       const SizedBox(height: 12),
                       Text(title, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                       if (subtitle != null) ...[
@@ -86,18 +85,20 @@ class MapsPlaceholder extends StatelessWidget {
                           style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65), fontSize: 13, height: 1.4),
                         ),
                       ],
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(20),
+                      if (showComingSoonBadge) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'Maps coming soon',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary.withValues(alpha: 0.9)),
+                          ),
                         ),
-                        child: Text(
-                          'Maps coming soon',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary.withValues(alpha: 0.9)),
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

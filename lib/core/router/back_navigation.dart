@@ -55,7 +55,7 @@ class RootBackScope extends StatelessWidget {
       context.go('/auth/login');
       return;
     }
-    if (path.startsWith('/auth') || path == '/splash' || path == '/role-selection') {
+    if (path.startsWith('/auth') || path == '/role-selection') {
       SystemNavigator.pop();
       return;
     }

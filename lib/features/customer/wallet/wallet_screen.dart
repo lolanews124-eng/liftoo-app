@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../core/layout/screen_safe_padding.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -49,12 +51,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     }
   }
 
-  Future<void> _addMoney() async {
-    await ref.read(walletRepositoryProvider).addWalletMoney(500);
-    await ref.read(authProvider.notifier).refreshUser();
-    _load();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('₹500 added to your wallet')));
+  Future<void> _openAddMoney(double balance) async {
+    final added = await context.push<bool>('/customer/wallet/add', extra: balance);
+    if (added == true && mounted) {
+      await ref.read(authProvider.notifier).refreshUser();
+      _load();
     }
   }
 
@@ -105,14 +106,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         onRefresh: _load,
         color: AppColors.primary,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          padding: shellScrollPadding(context, top: 8),
           children: [
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF1A1A1A), Color(0xFF2D2D2D)],
+                  colors: [AppColors.navy, Color(0xFF002A5C)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -160,9 +161,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: _addMoney,
+                          onPressed: () => _openAddMoney(balance),
                           icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add ₹500'),
+                          label: const Text('Add money'),
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,

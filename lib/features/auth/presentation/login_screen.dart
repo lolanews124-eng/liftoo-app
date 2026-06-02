@@ -8,9 +8,10 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/gradient_button.dart';
 import '../../../shared/widgets/keyboard_aware_scroll.dart';
-import '../../../shared/widgets/liftoo_logo.dart';
 import '../providers/auth_provider.dart';
+import 'auth_navigation.dart';
 import 'otp_login_args.dart';
+import 'widgets/login_brand_header.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -25,6 +26,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _referralController = TextEditingController();
   bool _loading = false;
   bool _obscurePassword = true;
+  bool _referralExpanded = false;
   String? _referralHint;
 
   @override
@@ -37,11 +39,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final uriRef = GoRouterState.of(context).uri.queryParameters['ref'];
     if (uriRef != null && uriRef.isNotEmpty) {
       await ref.read(referralStorageProvider).savePendingCode(uriRef);
+      if (mounted) {
+        setState(() {
+          _referralExpanded = true;
+          _referralController.text = uriRef;
+          _referralHint = 'Referral code applied from invite link';
+        });
+      }
+      return;
     }
     final pending = await ref.read(referralStorageProvider).peekPendingCode();
     if (pending != null && mounted) {
-      _referralController.text = pending;
-      setState(() => _referralHint = 'Referral code applied from invite link');
+      setState(() {
+        _referralExpanded = true;
+        _referralController.text = pending;
+        _referralHint = 'Referral code applied from invite link';
+      });
     }
   }
 
@@ -75,9 +88,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (referral.isNotEmpty) {
         await ref.read(referralStorageProvider).savePendingCode(referral);
       }
-      await ref.read(authProvider.notifier).loginWithEmail(email, password);
-      if (mounted) {
+      final result = await ref.read(authProvider.notifier).signInWithEmail(email, password);
+      if (!mounted) return;
+      if (result.requiresOtp) {
         context.push('/auth/otp', extra: OtpLoginArgs(email: email, password: password));
+      } else if (result.user != null) {
+        navigateAfterAuth(context, result.user!);
       }
     } catch (e) {
       if (mounted) showAppErrorSnackBar(context, e);
@@ -107,50 +123,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFFFF0E6), Color(0xFFFFFBF7)],
-                  ),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(28),
-                    bottomRight: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const LiftooLogo(
-                      showMark: true,
-                      showTagline: true,
-                      fontSize: 30,
-                      markSize: 92,
-                      center: false,
-                    ),
-                    const SizedBox(height: 24),
-                    RichText(
-                      text: const TextSpan(
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, height: 1.2, color: AppColors.charcoal),
-                        children: [
-                          TextSpan(text: 'Shopping\n'),
-                          TextSpan(text: 'made easy', style: TextStyle(color: AppColors.primary)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Sign in with your email. We will send a verification code to your inbox.',
-                      style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.95), fontSize: 14, height: 1.5),
-                    ),
-                  ],
-                ),
-              ),
+              const LoginBrandHeader(),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -179,21 +154,58 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    const Text('Referral code (optional)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _referralController,
-                      textCapitalization: TextCapitalization.characters,
-                      scrollPadding: scrollPad,
-                      decoration: InputDecoration(
-                        hintText: 'LIFRAHUL',
-                        prefixIcon: const Icon(Icons.card_giftcard_outlined, color: AppColors.primary),
-                        helperText: _referralHint ?? 'Have a friend\'s code? Enter it here',
+                    const SizedBox(height: 14),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => setState(() => _referralExpanded = !_referralExpanded),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Have a Referral Code',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                              AnimatedRotation(
+                                turns: _referralExpanded ? 0.5 : 0,
+                                duration: const Duration(milliseconds: 200),
+                                child: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 28),
-                    GradientButton(label: 'Continue', isLoading: _loading, onPressed: _continue),
+                    AnimatedCrossFade(
+                      firstChild: const SizedBox.shrink(),
+                      secondChild: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: TextField(
+                          controller: _referralController,
+                          textCapitalization: TextCapitalization.characters,
+                          scrollPadding: scrollPad,
+                          decoration: InputDecoration(
+                            hintText: 'Enter referral code',
+                            prefixIcon: const Icon(Icons.card_giftcard_outlined, color: AppColors.primary),
+                            helperText: _referralHint,
+                          ),
+                        ),
+                      ),
+                      crossFadeState:
+                          _referralExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                      duration: const Duration(milliseconds: 220),
+                      sizeCurve: Curves.easeOut,
+                    ),
+                    const SizedBox(height: 20),
+                    GradientButton(label: 'Sign in', isLoading: _loading, onPressed: _continue),
                     const SizedBox(height: 16),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),

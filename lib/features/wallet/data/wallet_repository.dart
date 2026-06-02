@@ -44,8 +44,17 @@ class WalletRepository {
         () => DevDataStore.instance.markNotificationRead(id),
       );
 
-  Future<void> addWalletMoney(double amount) => _resolve(
-        () => _api.post('/api/v1/wallet/top-up', data: {'amount': amount}),
-        () => DevDataStore.instance.addWalletMoney(amount),
+  Future<Map<String, dynamic>> addWalletMoney(double amount, {String method = 'upi'}) => _resolve(
+        () async {
+          final data = await _api.post<Map<String, dynamic>>(
+            '/api/v1/wallet/top-up',
+            data: {'amount': amount, 'method': method},
+          );
+          return data;
+        },
+        () {
+          DevDataStore.instance.addWalletMoney(amount, method: method);
+          return DevDataStore.instance.getWallet();
+        },
       );
 }

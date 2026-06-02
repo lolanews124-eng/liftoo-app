@@ -79,8 +79,8 @@ class _Wordmark extends StatelessWidget {
               height: 1,
             ),
             children: const [
-              TextSpan(text: 'Lift', style: TextStyle(color: AppColors.charcoal)),
-              TextSpan(text: 'oo', style: TextStyle(color: AppColors.primary)),
+              TextSpan(text: 'Lif', style: TextStyle(color: AppColors.charcoal)),
+              TextSpan(text: 'too', style: TextStyle(color: AppColors.primary)),
             ],
           ),
         ),
@@ -152,8 +152,8 @@ class _SmilePainter extends CustomPainter {
 }
 
 class _LiftooMarkPainter extends CustomPainter {
-  static const _orange = AppColors.primary;
-  static const _orangeDark = AppColors.primaryDark;
+  static const _brandPink = AppColors.primary;
+  static const _brandPinkDark = AppColors.primaryDark;
   static const _charcoal = AppColors.charcoal;
 
   @override
@@ -164,10 +164,10 @@ class _LiftooMarkPainter extends CustomPainter {
     final gradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [_orange, _orangeDark],
+      colors: [_brandPink, _brandPinkDark],
     ).createShader(Rect.fromLTWH(0, 0, w, h));
 
-    final orangePaint = Paint()..shader = gradient;
+    final brandPaint = Paint()..shader = gradient;
     final charcoalPaint = Paint()..color = _charcoal;
 
     // L — vertical stroke
@@ -175,24 +175,24 @@ class _LiftooMarkPainter extends CustomPainter {
       Rect.fromLTWH(w * 0.14, h * 0.08, w * 0.2, h * 0.72),
       Radius.circular(w * 0.08),
     );
-    canvas.drawRRect(lVertical, orangePaint);
+    canvas.drawRRect(lVertical, brandPaint);
 
     // L — horizontal stroke
     final lHorizontal = RRect.fromRectAndRadius(
       Rect.fromLTWH(w * 0.14, h * 0.62, w * 0.58, h * 0.2),
       Radius.circular(w * 0.06),
     );
-    canvas.drawRRect(lHorizontal, orangePaint);
+    canvas.drawRRect(lHorizontal, brandPaint);
 
     // Walking person silhouette
     _drawPerson(canvas, size, charcoalPaint);
 
     // Shopping bag
-    _drawBag(canvas, size, orangePaint);
+    _drawBag(canvas, size, brandPaint);
 
     // Motion arc
     final arcPaint = Paint()
-      ..color = _orange
+      ..color = _brandPink
       ..style = PaintingStyle.stroke
       ..strokeWidth = w * 0.028
       ..strokeCap = StrokeCap.round;
@@ -275,8 +275,8 @@ class LiftooLogoCompact extends StatelessWidget {
               height: 1,
             ),
             children: const [
-              TextSpan(text: 'Lift', style: TextStyle(color: AppColors.charcoal)),
-              TextSpan(text: 'oo', style: TextStyle(color: AppColors.primary)),
+              TextSpan(text: 'Lif', style: TextStyle(color: AppColors.charcoal)),
+              TextSpan(text: 'too', style: TextStyle(color: AppColors.primary)),
             ],
           ),
         ),

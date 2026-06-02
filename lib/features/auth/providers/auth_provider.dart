@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/providers.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../core/network/network_errors.dart';
+import '../data/login_result.dart';
 
 class AuthState {
   final UserModel? user;
@@ -34,8 +35,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> loginWithEmail(String email, String password) async {
-    await ref.read(authRepositoryProvider).loginWithEmail(email, password);
+  Future<LoginResult> signInWithEmail(String email, String password) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final result = await ref.read(authRepositoryProvider).loginWithEmail(email, password);
+      if (!result.requiresOtp && result.user != null) {
+        state = AuthState(user: result.user, isLoading: false);
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+      return result;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: NetworkErrors.userMessage(e));
+      rethrow;
+    }
   }
 
   Future<void> resendEmailOtp(String email, String password) async {
@@ -64,7 +77,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> setRole(AppRole role) async {
-    state = state.copyWith(isLoading: true);
     final user = await ref.read(authRepositoryProvider).setRole(role);
     state = AuthState(user: user, isLoading: false);
   }

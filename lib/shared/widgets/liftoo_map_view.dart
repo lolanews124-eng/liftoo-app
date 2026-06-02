@@ -44,7 +44,7 @@ class LiftooMapView extends StatelessWidget {
             Marker(
               markerId: const MarkerId('pickup'),
               position: target,
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueMagenta),
             ),
           },
           myLocationEnabled: showMyLocation,

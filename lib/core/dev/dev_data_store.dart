@@ -20,6 +20,8 @@ class DevDataStore {
   final Map<String, Timer> _simTimers = {};
 
   double walletBalance = 1000;
+  /// Assistant settlement balance (for cash job company share).
+  double assistantSettlementBalance = 500;
   String referralCode = 'LIFDEV';
   int totalReferrals = 2;
   double totalEarned = 200;
@@ -206,7 +208,12 @@ class DevDataStore {
       totalAmount: 64.9,
       category: categories[1],
       assistant: assistantSnapshot(),
-      payment: {'method': 'wallet', 'paidAt': DateTime.now().subtract(const Duration(days: 2)).toIso8601String()},
+      payment: {
+        'method': 'wallet',
+        'status': 'completed',
+        'amount': 64.9,
+        'paidAt': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
+      },
       statusHistory: [
         StatusHistoryModel(status: 'completed', createdAt: DateTime.now().subtract(const Duration(days: 2))),
       ],
@@ -247,10 +254,16 @@ class DevDataStore {
     }
   }
 
-  List<BookingModel> getBookings({String? status}) {
+  List<BookingModel> getBookings({String? status, String? asRole}) {
     ensureSeeded();
-    final all = _bookings.values.toList()
+    var all = _bookings.values.toList()
       ..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+
+    if (asRole == 'assistant') {
+      all = all
+          .where((b) => b.assistant != null && b.assistant!['id'] == assistantId)
+          .toList();
+    }
 
     if (status == null) return all.map(_hydrate).toList();
     if (status == 'upcoming') {
@@ -316,6 +329,43 @@ class DevDataStore {
         ],
         'message': '3 assistants available near you',
       };
+
+  /// Online assistants around pickup (for booking map step).
+  List<Map<String, dynamic>> getNearbyAssistants(double lat, double lng) => [
+        {
+          'id': 'asst-rohit',
+          'name': 'Rohit Kumar',
+          'lat': lat + 0.0082,
+          'lng': lng + 0.0055,
+          'distanceKm': '1.1',
+          'rating': 4.9,
+          'totalJobs': 48,
+          'assistantCode': 'LF-1001',
+          'isOnline': true,
+        },
+        {
+          'id': 'asst-priya',
+          'name': 'Priya Sharma',
+          'lat': lat - 0.0065,
+          'lng': lng + 0.0092,
+          'distanceKm': '1.4',
+          'rating': 4.8,
+          'totalJobs': 32,
+          'assistantCode': 'LF-1002',
+          'isOnline': true,
+        },
+        {
+          'id': 'asst-amit',
+          'name': 'Amit Singh',
+          'lat': lat + 0.012,
+          'lng': lng - 0.007,
+          'distanceKm': '2.0',
+          'rating': 4.7,
+          'totalJobs': 21,
+          'assistantCode': 'LF-1003',
+          'isOnline': true,
+        },
+      ];
 
   void updateAssistantLocation(double lat, double lng) {
     for (final id in _assistantTrack.keys) {
@@ -489,16 +539,58 @@ class DevDataStore {
 
   BookingModel completeService(String id) {
     final current = getBooking(id);
+    final assistantEarning = (current.serviceFee * 0.8).roundToDouble();
+    final companyShare = current.totalAmount - assistantEarning;
     final updated = _copy(
       current,
       status: 'completed',
+      payment: {
+        'amount': current.totalAmount,
+        'status': 'pending',
+      },
+      paymentConfirmOtp: '1234',
+      assistantEarningAmount: assistantEarning,
+      companyShareAmount: companyShare,
       history: [
         ...current.statusHistory,
         StatusHistoryModel(status: 'completed', createdAt: DateTime.now()),
       ],
     );
     _bookings[id] = updated;
+    _addNotification('Service completed', 'Please pay ₹${current.totalAmount.toStringAsFixed(0)} for your booking.');
     return updated;
+  }
+
+  BookingModel markCashCollected(String id) {
+    final b = getBooking(id);
+    if (b.status != 'completed') throw Exception('Booking not completed');
+    if (b.isPaid) throw Exception('Already paid');
+    final companyShare = b.companyShareAmount ?? (b.totalAmount - b.serviceFee * 0.8);
+    if (assistantSettlementBalance < companyShare) {
+      throw Exception(
+        'Add at least ₹${companyShare.toStringAsFixed(0)} to settlement wallet (current ₹${assistantSettlementBalance.toStringAsFixed(0)})',
+      );
+    }
+    final updated = _copy(
+      b,
+      payment: {
+        'amount': b.totalAmount,
+        'status': 'pending',
+        'method': 'cash',
+        'cashCollectedAt': DateTime.now().toIso8601String(),
+      },
+    );
+    _bookings[id] = updated;
+    return updated;
+  }
+
+  PaymentResultModel confirmCashPayment(String id, String otp) {
+    final b = getBooking(id);
+    if (b.paymentConfirmOtp != otp.trim()) throw Exception('Invalid payment OTP');
+    if (b.payment?['cashCollectedAt'] == null) {
+      throw Exception('Assistant must confirm cash received first');
+    }
+    return payBooking(id, 'cash');
   }
 
   BookingModel acceptBooking(String id) {
@@ -543,16 +635,18 @@ class DevDataStore {
     return updated;
   }
 
-  void addWalletMoney(double amount) {
+  void addWalletMoney(double amount, {String method = 'upi'}) {
     ensureSeeded();
     walletBalance += amount;
+    final methodLabel = method == 'card' ? 'Card' : 'UPI';
     _transactions.insert(0, {
       'id': 'tx-${_rng.nextInt(99999)}',
       'type': 'credit',
       'amount': amount,
-      'description': 'Added money',
+      'description': 'Wallet top-up via $methodLabel',
       'createdAt': DateTime.now().toIso8601String(),
     });
+    _addNotification('Wallet credited', '₹${amount.toStringAsFixed(0)} added via $methodLabel');
   }
 
   void markNotificationRead(String id) {
@@ -586,6 +680,11 @@ class DevDataStore {
 
   PaymentResultModel payBooking(String id, String method) {
     final b = getBooking(id);
+    if (b.status != 'completed') throw Exception('Complete the service first');
+    if (b.isPaid) throw Exception('Payment already completed');
+    if (method == 'cash' && b.payment?['cashCollectedAt'] == null) {
+      throw Exception('Assistant must confirm cash received first');
+    }
     if (method == 'wallet') {
       if (walletBalance < b.totalAmount) {
         throw Exception('Insufficient wallet balance');
@@ -599,10 +698,26 @@ class DevDataStore {
         'createdAt': DateTime.now().toIso8601String(),
       });
     }
+    if (method == 'cash') {
+      final companyShare = b.companyShareAmount ?? (b.totalAmount - b.serviceFee * 0.8);
+      if (assistantSettlementBalance < companyShare) {
+        throw Exception('Insufficient settlement wallet for company share');
+      }
+      assistantSettlementBalance -= companyShare;
+    }
+    final assistantEarning = b.assistantEarningAmount ?? (b.serviceFee * 0.8);
     _bookings[id] = _copy(
       b,
       status: 'completed',
-      payment: {'method': method, 'status': 'completed', 'paidAt': DateTime.now().toIso8601String()},
+      payment: {
+        'method': method,
+        'status': 'completed',
+        'amount': b.totalAmount,
+        'paidAt': DateTime.now().toIso8601String(),
+        if (b.payment?['cashCollectedAt'] != null) 'cashCollectedAt': b.payment!['cashCollectedAt'],
+      },
+      clearPaymentOtp: true,
+      assistantEarningAmount: assistantEarning,
     );
     _addNotification('Payment successful', '₹${b.totalAmount.toStringAsFixed(0)} paid via ${method.toUpperCase()}');
     markJustPaid(id);
@@ -817,6 +932,10 @@ class DevDataStore {
     String? serviceOtp,
     BookingSearchAvailability? searchAvailability,
     BookingTrackingModel? tracking,
+    String? paymentConfirmOtp,
+    double? assistantEarningAmount,
+    double? companyShareAmount,
+    bool clearPaymentOtp = false,
   }) {
     return BookingModel(
       id: b.id,
@@ -840,6 +959,9 @@ class DevDataStore {
       appReview: appReview ?? b.appReview,
       searchAvailability: searchAvailability ?? b.searchAvailability,
       tracking: tracking ?? b.tracking,
+      paymentConfirmOtp: clearPaymentOtp ? null : (paymentConfirmOtp ?? b.paymentConfirmOtp),
+      assistantEarningAmount: assistantEarningAmount ?? b.assistantEarningAmount,
+      companyShareAmount: companyShareAmount ?? b.companyShareAmount,
     );
   }
 
@@ -907,14 +1029,22 @@ class DevDataStore {
   List<Map<String, dynamic>> getChatMessages(String bookingId) =>
       List.from(_chatMessages[bookingId] ?? []);
 
-  Map<String, dynamic> sendChatMessage(String bookingId, String message) {
+  Map<String, dynamic> sendChatMessage(
+    String bookingId,
+    String message, {
+    String? senderId,
+    String? senderName,
+  }) {
     final m = {
       'id': 'cm-${DateTime.now().millisecondsSinceEpoch}',
       'bookingId': bookingId,
-      'senderId': 'dev-user',
+      'senderId': senderId ?? 'dev-user',
       'message': message,
       'createdAt': DateTime.now().toIso8601String(),
-      'sender': {'id': 'dev-user', 'name': 'You'},
+      'sender': {
+        'id': senderId ?? 'dev-user',
+        'name': senderName ?? 'You',
+      },
     };
     _chatMessages.putIfAbsent(bookingId, () => []).add(m);
     return m;

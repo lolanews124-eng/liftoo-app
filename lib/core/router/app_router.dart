@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/providers/auth_provider.dart';
-import '../../features/splash/splash_screen.dart';
+import 'initial_route.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/otp_screen.dart';
 import '../../features/auth/presentation/setup_profile_screen.dart';
@@ -16,12 +16,14 @@ import '../../features/customer/booking/booking_wizard_screen.dart';
 import '../../features/customer/booking/live_booking_screen.dart';
 import '../../features/customer/bookings/my_bookings_screen.dart';
 import '../../features/customer/profile/customer_profile_screen.dart';
+import '../../features/customer/wallet/wallet_add_money_screen.dart';
 import '../../features/customer/wallet/wallet_screen.dart';
 import '../../features/customer/referral/referral_screen.dart';
 import '../../features/customer/payment/payment_screen.dart';
 import '../../features/customer/rating/rating_screen.dart';
 import '../../features/customer/rating/app_review_screen.dart';
 import '../../features/assistant/dashboard/assistant_dashboard_screen.dart';
+import '../../features/assistant/jobs/assistant_jobs_screen.dart';
 import '../../features/assistant/requests/requests_screen.dart';
 import '../../features/assistant/active_job/active_job_screen.dart';
 import '../../features/assistant/earnings/earnings_screen.dart';
@@ -32,27 +34,25 @@ import '../../features/customer/addresses/addresses_screen.dart';
 import '../../features/chat/chat_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import 'page_transitions.dart';
+import 'root_navigator.dart';
 import 'shell_scaffold.dart';
-
-final _rootKey = GlobalKey<NavigatorState>();
 
 /// Rebuild GoRouter only when login/role changes — not on wallet balance updates.
 String _authRouteKey(AuthState auth) =>
-    '${auth.user?.id}|${auth.user?.activeRole}|${auth.user?.profileComplete}|${auth.isLoading}';
+    '${auth.user?.id}|${auth.user?.activeRole}|${auth.user?.profileComplete}';
 
 final routerProvider = Provider<GoRouter>((ref) {
   ref.watch(authProvider.select(_authRouteKey));
   final authState = ref.read(authProvider);
 
   return GoRouter(
-    navigatorKey: _rootKey,
-    initialLocation: '/splash',
+    navigatorKey: rootNavigatorKey,
+    initialLocation: resolveInitialLocation(authState),
     redirect: (context, state) {
       final loc = state.matchedLocation;
       final user = authState.user;
 
       if (loc.startsWith('/review/')) return null;
-      if (loc == '/splash') return null;
 
       final isAuth = loc.startsWith('/auth');
       if (user == null && !isAuth) return '/auth/login';
@@ -75,10 +75,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/splash',
-        pageBuilder: (_, state) => appFadePage(key: state.pageKey, child: const SplashScreen()),
-      ),
       GoRoute(
         path: '/auth/login',
         pageBuilder: (_, state) => appSlidePage(key: state.pageKey, child: const LoginScreen()),
@@ -123,7 +119,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/customer/payment/:id',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (_, state) => appSlidePage(
           key: state.pageKey,
           child: PaymentScreen(bookingId: state.pathParameters['id']!),
@@ -131,7 +127,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/review/service/:id',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (_, state) => appSlidePage(
           key: state.pageKey,
           child: RatingScreen(bookingId: state.pathParameters['id']!),
@@ -139,7 +135,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/review/app/:id',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (_, state) => appSlidePage(
           key: state.pageKey,
           child: AppReviewScreen(bookingId: state.pathParameters['id']!),
@@ -162,6 +158,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => appSlidePage(key: state.pageKey, child: const AddressesScreen()),
       ),
       GoRoute(
+        path: '/customer/wallet/add',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (_, state) {
+          final balance = (state.extra as num?)?.toDouble() ?? 0;
+          return appSlidePage(
+            key: state.pageKey,
+            child: WalletAddMoneyScreen(currentBalance: balance),
+          );
+        },
+      ),
+      GoRoute(
         path: '/chat/:bookingId',
         pageBuilder: (_, state) => appSlidePage(
           key: state.pageKey,
@@ -176,8 +183,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/assistant/nearby-requests',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (_, state) => appSlidePage(key: state.pageKey, child: const RequestsScreen()),
+      ),
+      GoRoute(
         path: '/assistant/verification',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (_, state) => appSlidePage(
           key: state.pageKey,
           child: const AssistantVerificationScreen(),
@@ -237,7 +249,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/assistant/requests',
-                builder: (_, __) => const RequestsScreen(),
+                builder: (_, __) => const AssistantJobsScreen(),
               ),
             ],
           ),

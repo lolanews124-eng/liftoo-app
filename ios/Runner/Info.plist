@@ -27,7 +27,7 @@
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>GMSApiKey</key>
-		<string>YOUR_GOOGLE_MAPS_API_KEY</string>
+		<string>AIzaSyC_XJIfUhLxy9H1Wut-ZtZd7b7T08nA2SY</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Liftoo uses your location to find nearby assistants, show live tracking, and match booking requests.</string>
 		<key>NSCameraUsageDescription</key>
@@ -75,6 +75,8 @@
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
 		<key>UIStatusBarHidden</key>
+		<true/>
+		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
 	</dict>
 </plist>

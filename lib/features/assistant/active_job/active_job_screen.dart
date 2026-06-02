@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'widgets/assistant_collect_payment_dialog.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
@@ -10,6 +11,7 @@ import '../../../shared/widgets/keyboard_aware_scroll.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import '../../booking/shared/booking_realtime.dart';
 import '../shared/assistant_job_location_tracker.dart';
+import 'widgets/assistant_job_steps.dart';
 
 class ActiveJobScreen extends ConsumerStatefulWidget {
   final String bookingId;
@@ -55,11 +57,25 @@ class _ActiveJobScreenState extends ConsumerState<ActiveJobScreen> {
     }
   }
 
+  Future<void> _openCustomerOnMaps(BookingModel b) async {
+    final uri = Uri.parse(
+      'google.navigation:q=${b.lat},${b.lng}&mode=d',
+    );
+    final webUri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}&travelmode=driving',
+    );
+    if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+    await launchUrl(webUri, mode: LaunchMode.externalApplication);
+  }
+
   Future<void> _startNavigation() async {
+    final b = _booking;
+    if (b == null) return;
     setState(() => _loading = true);
     try {
       await ref.read(bookingRepositoryProvider).setArriving(widget.bookingId);
       await _load();
+      if (mounted) await _openCustomerOnMaps(b);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not start navigation')));
@@ -86,7 +102,15 @@ class _ActiveJobScreenState extends ConsumerState<ActiveJobScreen> {
   Future<void> _complete() async {
     setState(() => _loading = true);
     try {
-      await ref.read(bookingRepositoryProvider).completeBooking(widget.bookingId);
+      final result = await ref.read(bookingRepositoryProvider).completeBooking(widget.bookingId);
+      if (!mounted) return;
+      await showAssistantCollectPaymentDialog(
+        context,
+        ref: ref,
+        booking: result.booking,
+        assistantEarning: result.assistantEarning,
+        paymentConfirmOtp: result.booking.paymentConfirmOtp,
+      );
       if (mounted) context.go('/assistant');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -109,18 +133,23 @@ class _ActiveJobScreenState extends ConsumerState<ActiveJobScreen> {
       ),
       body: b == null
           ? const Center(child: CircularProgressIndicator())
-          : KeyboardAwareScroll(
+          : SafeArea(
+              child: KeyboardAwareScroll(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  AssistantJobSteps(status: b.status),
+                  const SizedBox(height: 16),
                   LiftooCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(b.customer?['name'] ?? 'Customer', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                        Text(b.addressFormatted, style: const TextStyle(color: AppColors.textSecondary)),
-                        Text('Status: ${b.status}', style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary)),
+                        const SizedBox(height: 4),
+                        Text(b.addressFormatted, style: const TextStyle(color: AppColors.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 8),
+                        Text(_statusLabel(b.status), style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)),
                       ],
                     ),
                   ),
@@ -146,6 +175,13 @@ class _ActiveJobScreenState extends ConsumerState<ActiveJobScreen> {
                   ),
                   const SizedBox(height: 24),
                   if (b.status == 'assigned') ...[
+                    const Text('Step 3: Go to pickup', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Start navigation when you leave for the customer location.',
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
                     GradientButton(
                       label: 'Start navigation',
                       isLoading: _loading,
@@ -153,8 +189,16 @@ class _ActiveJobScreenState extends ConsumerState<ActiveJobScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  if (b.status == 'arriving') ...[
+                    const Text('Step 4: At pickup — verify OTP', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Ask the customer for their 4-digit OTP to start the service.',
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (b.status == 'assigned' || b.status == 'arriving') ...[
-                    const Text('Enter customer OTP to start', style: TextStyle(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _otpController,
@@ -166,12 +210,22 @@ class _ActiveJobScreenState extends ConsumerState<ActiveJobScreen> {
                     GradientButton(label: 'Verify & Start', isLoading: _loading, onPressed: _verifyOtp),
                   ],
                   if (b.status == 'started') ...[
-                    const SizedBox(height: 24),
+                    const Text('Step 5: Complete service', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    const SizedBox(height: 12),
                     GradientButton(label: 'Complete service', isLoading: _loading, onPressed: _complete),
                   ],
                 ],
               ),
             ),
+          ),
     );
   }
+
+  String _statusLabel(String status) => switch (status) {
+        'assigned' => 'Accepted — ready to navigate',
+        'arriving' => 'On the way to customer',
+        'started' => 'Service in progress',
+        'completed' => 'Completed',
+        _ => status,
+      };
 }

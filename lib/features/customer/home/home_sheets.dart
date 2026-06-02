@@ -144,7 +144,7 @@ void showHelpSheet(BuildContext context) {
             ),
             _FaqTile(
               q: 'How does Refer & Earn work?',
-              a: 'Share your referral code. When a friend completes their first booking, you earn ₹100 in your wallet.',
+              a: 'Share your referral code. When a friend completes their first paid booking, you earn the referral reward shown in Refer & Earn (set by Liftoo).',
             ),
           ],
         ),

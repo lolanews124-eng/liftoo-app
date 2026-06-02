@@ -28,28 +28,27 @@ dependencies:
   connectivity_plus: ^6.1.4
   permission_handler: ^12.0.2
   geocoding: ^4.0.0
+  flutter_native_splash: ^2.4.4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
-  flutter_native_splash: ^2.4.4
 
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/images/liftoo_logo.png
+  image_path: assets/images/liftoo_app_icon.png
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: assets/images/liftoo_logo.png
+  adaptive_icon_foreground: assets/images/liftoo_app_icon.png
   remove_alpha_ios: true
 
 flutter_native_splash:
   color: "#FFFFFF"
-  image: assets/images/liftoo_logo.png
-  android_12:
-    color: "#FFFFFF"
-    image: assets/images/liftoo_logo.png
+  image: assets/images/liftoo_logo_splash.png
+  android_gravity: center
+  fullscreen: true
 
 flutter:
   uses-material-design: true

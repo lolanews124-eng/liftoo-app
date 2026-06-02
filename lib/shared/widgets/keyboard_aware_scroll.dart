@@ -7,16 +7,19 @@ class KeyboardAwareScroll extends StatelessWidget {
     required this.child,
     this.padding = EdgeInsets.zero,
     this.extraBottom = 24,
+    this.physics,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double extraBottom;
+  final ScrollPhysics? physics;
 
   @override
   Widget build(BuildContext context) {
     final keyboardBottom = MediaQuery.viewInsetsOf(context).bottom;
     return SingleChildScrollView(
+      physics: physics,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: padding.add(EdgeInsets.only(bottom: keyboardBottom + extraBottom)),
       child: child,

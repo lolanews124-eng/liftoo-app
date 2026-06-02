@@ -10,6 +10,7 @@ import '../../../shared/widgets/gradient_button.dart';
 import '../../../shared/widgets/keyboard_aware_scroll.dart';
 import '../../../shared/widgets/otp_pin_input.dart';
 import '../providers/auth_provider.dart';
+import 'auth_navigation.dart';
 import 'otp_login_args.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
@@ -79,15 +80,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             password: widget.args.password,
           );
       if (!mounted) return;
-      if (!result.user.profileComplete) {
-        context.go('/auth/setup-profile');
-      } else if (result.user.activeRole == null) {
-        context.go('/role-selection');
-      } else if (result.user.activeRole == 'assistant') {
-        context.go('/assistant');
-      } else {
-        context.go('/customer');
-      }
+      navigateAfterAuth(context, result.user);
     } catch (e) {
       if (mounted) {
         HapticFeedback.heavyImpact();

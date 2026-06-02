@@ -1,16 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/location/location_service.dart';
 import '../../../core/router/back_navigation.dart';
 import '../../../core/dev/dev_data_store.dart';
+import '../../../core/dev/dev_mock.dart';
 import '../../../core/network/error_snackbar.dart';
+import '../../../core/network/network_errors.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
+import '../../../shared/models/nearby_assistant_model.dart';
 import '../../../shared/models/service_location_model.dart';
 import '../../../shared/widgets/gradient_button.dart';
-import '../../../shared/widgets/liftoo_map_view.dart';
+import 'widgets/booking_pickup_map.dart';
+import '../../../core/layout/screen_safe_padding.dart';
 import '../home/home_sheets.dart';
 import '../home/quick_book_draft.dart';
 
@@ -24,8 +30,8 @@ class BookingWizardScreen extends ConsumerStatefulWidget {
 }
 
 class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
-  final _pageController = PageController();
   int _step = 0;
+  Timer? _assistantsLoadDebounce;
   List<ServiceCategoryModel> _categories = [];
   ServiceCategoryModel? _selectedCategory;
   int _duration = 60;
@@ -33,6 +39,16 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
   List<ServiceLocationModel> _savedLocations = [];
   bool _locationLoading = true;
   bool _loading = false;
+  bool _assistantsLoading = false;
+  bool _gpsRefreshing = false;
+  List<NearbyAssistantModel> _nearbyAssistants = [];
+  int _matchRadiusKm = 10;
+
+  @override
+  void dispose() {
+    _assistantsLoadDebounce?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -59,7 +75,9 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
       final loc = await LocationService.fromCoordinates(draft!.lat!, draft.lng!, isCurrent: false);
       if (mounted) {
         setState(() {
-          _selectedLocation = loc;
+          _selectedLocation = draft.venueName != null && draft.venueName!.trim().isNotEmpty
+              ? loc.copyWith(name: draft.venueName!.trim())
+              : loc;
           _locationLoading = false;
         });
         return;
@@ -104,12 +122,27 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
         _selectedCategory = picked ?? (cats.isNotEmpty ? cats.first : null);
       });
     } catch (_) {
-      if (mounted) {
-        setState(() {
+      if (!mounted) return;
+      final useMock = await devIsMockSession(ref.read(tokenStorageProvider));
+      setState(() {
+        if (useMock) {
           _categories = DevDataStore.categories;
-          _selectedCategory = DevDataStore.categories.isNotEmpty ? DevDataStore.categories.first : null;
-        });
-      }
+          final slug = widget.draft?.categorySlug;
+          ServiceCategoryModel? picked;
+          if (slug != null) {
+            for (final c in _categories) {
+              if (c.slug == slug) {
+                picked = c;
+                break;
+              }
+            }
+          }
+          _selectedCategory = picked ?? (_categories.isNotEmpty ? _categories.first : null);
+        } else {
+          _categories = [];
+          _selectedCategory = null;
+        }
+      });
     }
   }
 
@@ -121,12 +154,6 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
   double get _platformFee => _serviceFee * 0.1;
   double get _total => _serviceFee + _platformFee;
 
-  String get _locationTitle => _selectedLocation?.name ?? 'Getting location…';
-  String get _locationSubtitle {
-    final loc = _selectedLocation;
-    if (loc == null) return 'Detecting GPS…';
-    return loc.city.isNotEmpty ? '${loc.address}, ${loc.city}' : loc.address;
-  }
   String get _locationDisplayName => _selectedLocation?.displayName ?? 'Getting location…';
 
   Future<void> _confirm() async {
@@ -147,17 +174,83 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
         'durationMin': _duration,
         'venueName': loc.displayName,
         'scheduledAt': DateTime.now().toIso8601String(),
-        'addressLabel': loc.name,
-        'addressFormatted': loc.address,
+        'addressLabel': loc.name.isNotEmpty ? loc.name : loc.displayName,
+        'addressFormatted': loc.address.isNotEmpty ? loc.address : loc.displayName,
         'lat': loc.lat,
         'lng': loc.lng,
       });
-      final confirmed = await repo.confirmBooking(booking.id);
-      if (mounted) context.go('/customer/booking/${confirmed.id}');
+      BookingModel active = booking;
+      try {
+        active = await repo.confirmBooking(booking.id);
+      } catch (confirmError) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Booking saved. Retrying search… (${NetworkErrors.userMessage(confirmError)})')),
+          );
+        }
+      }
+      if (mounted) context.go('/customer/booking/${active.id}');
     } catch (e) {
       if (mounted) showAppErrorSnackBar(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  bool get _hasValidLocation => !_locationLoading && _selectedLocation != null;
+
+  List<NearbyAssistantModel> get _nearbyWithinRadius => _nearbyAssistants.where((a) {
+        if (!a.hasCoordinates) return false;
+        if (a.distanceKm == null) return true;
+        return a.distanceKm! <= _matchRadiusKm;
+      }).toList();
+
+  bool get _canProceedFromMapStep => !_assistantsLoading && _nearbyWithinRadius.isNotEmpty;
+
+  String get _stepTitle => switch (_step) {
+        0 => 'Choose service',
+        1 => 'Pickup location',
+        2 => 'Review booking',
+        _ => 'Confirm & pay',
+      };
+
+  void _scheduleLoadNearbyAssistants() {
+    _assistantsLoadDebounce?.cancel();
+    _assistantsLoadDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) unawaited(_loadNearbyAssistants());
+    });
+  }
+
+  Future<void> _loadNearbyAssistants() async {
+    final loc = _selectedLocation;
+    if (loc == null) return;
+    if (!_assistantsLoading) setState(() => _assistantsLoading = true);
+    try {
+      final repo = ref.read(bookingRepositoryProvider);
+      final results = await Future.wait([
+        repo.getNearbyAssistants(lat: loc.lat, lng: loc.lng),
+        repo.getAvailabilitySummary(lat: loc.lat, lng: loc.lng),
+      ]).timeout(const Duration(seconds: 12));
+      final assistants = results[0] as List<NearbyAssistantModel>;
+      final summary = results[1] as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _nearbyAssistants = assistants;
+        _matchRadiusKm = (summary['matchRadiusKm'] as num?)?.toInt() ?? 10;
+        _assistantsLoading = false;
+      });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _nearbyAssistants = [];
+        _assistantsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _nearbyAssistants = [];
+        _assistantsLoading = false;
+      });
     }
   }
 
@@ -166,9 +259,30 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a service')));
       return;
     }
+    if (_step == 1) {
+      if (!_hasValidLocation) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please wait for location or choose a pickup address')),
+        );
+        return;
+      }
+      if (_assistantsLoading) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Checking assistants near you…')),
+        );
+        return;
+      }
+      if (!_canProceedFromMapStep) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No assistants available right now')),
+        );
+        return;
+      }
+    }
     if (_step < 3) {
+      final enteringMap = _step == 0;
       setState(() => _step++);
-      _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+      if (enteringMap) _scheduleLoadNearbyAssistants();
     } else {
       _confirm();
     }
@@ -176,7 +290,6 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
 
   void _previousStep() {
     setState(() => _step--);
-    _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
   }
 
   void _handleBack() {
@@ -191,16 +304,22 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
 
   Future<void> _pickLocation() async {
     final picked = await showLocationPicker(context, ref, _selectedLocation, savedLocations: _savedLocations);
-    if (picked != null) setState(() => _selectedLocation = picked);
+    if (picked != null) {
+      setState(() => _selectedLocation = picked);
+      if (_step == 1) _scheduleLoadNearbyAssistants();
+    }
   }
 
   Future<void> _useCurrentLocation() async {
-    setState(() => _locationLoading = true);
-    final gps = await LocationService.resolveCurrentLocation();
-    if (mounted) setState(() {
-      _selectedLocation = gps;
-      _locationLoading = false;
-    });
+    setState(() => _gpsRefreshing = true);
+    try {
+      final gps = await LocationService.resolveCurrentLocation();
+      if (!mounted) return;
+      setState(() => _selectedLocation = gps);
+      if (_step == 1) _scheduleLoadNearbyAssistants();
+    } finally {
+      if (mounted) setState(() => _gpsRefreshing = false);
+    }
   }
 
   @override
@@ -210,7 +329,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
       onStepBack: _previousStep,
       child: Scaffold(
       appBar: AppBar(
-        title: Text('Book Assistant (${_step + 1}/4)'),
+        title: Text('$_stepTitle (${_step + 1}/4)'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: _handleBack,
@@ -225,30 +344,49 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
             minHeight: 4,
           ),
           Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildStep1(),
-                _buildStep2(),
-                _buildStep3(),
-                _buildStep4(),
-              ],
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+              child: KeyedSubtree(
+                key: ValueKey<int>(_step),
+                child: switch (_step) {
+                  0 => _buildStep1(),
+                  1 => _buildStep2(),
+                  2 => _buildStep3(),
+                  _ => _buildStep4(),
+                },
+              ),
             ),
           ),
           if (_selectedCategory != null && _step < 2) _buildPriceBar(),
-          Padding(
+          SafeBottomBar(
             padding: EdgeInsets.fromLTRB(20, _selectedCategory != null ? 12 : 20, 20, 20),
             child: GradientButton(
-              label: _step == 3 ? 'Confirm Booking' : 'Continue',
+              label: _continueButtonLabel,
               isLoading: _loading,
-              onPressed: _next,
+              onPressed: _continueEnabled ? _next : null,
             ),
           ),
         ],
       ),
       ),
     );
+  }
+
+  String get _continueButtonLabel {
+    if (_step == 3) return 'Confirm Booking';
+    if (_step == 1 && !_assistantsLoading && !_canProceedFromMapStep) {
+      return 'No assistant available';
+    }
+    return 'Continue';
+  }
+
+  bool get _continueEnabled {
+    if (_loading) return false;
+    if (_step == 1) return _hasValidLocation && _canProceedFromMapStep;
+    return true;
   }
 
   Widget _buildPriceBar() {
@@ -308,6 +446,25 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
   }
 
   Widget _buildStep1() {
+    if (_categories.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_outlined, size: 48, color: AppColors.textSecondary),
+              const SizedBox(height: 12),
+              const Text('Could not load services', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              const SizedBox(height: 8),
+              const Text('Check your internet connection and try again.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(height: 16),
+              OutlinedButton(onPressed: _loadCategories, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -344,49 +501,10 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
             );
           }).toList(),
         ),
-        const SizedBox(height: 20),
-        const Text('Location', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
         const SizedBox(height: 8),
-        Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            onTap: _pickLocation,
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.store_mall_directory_outlined, color: AppColors.primary, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_locationTitle, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                        Text(
-                          _locationSubtitle,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
-                ],
-              ),
-            ),
-          ),
+        Text(
+          'You will choose pickup location on the next step',
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary.withValues(alpha: 0.9)),
         ),
       ],
     );
@@ -464,69 +582,133 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
       };
 
   Widget _buildStep2() {
-    if (_locationLoading || _selectedLocation == null) {
-      return const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()));
+    if (_locationLoading && _selectedLocation == null) {
+      return const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(strokeWidth: 2)));
     }
-    final loc = _selectedLocation!;
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        const Text('Pickup location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 16),
-        GestureDetector(
-          onTap: _pickLocation,
-          child: LiftooMapView(
-            lat: loc.lat,
-            lng: loc.lng,
-            title: loc.displayName,
-            subtitle: loc.city.isNotEmpty ? '${loc.address}, ${loc.city}' : loc.address,
-            height: 180,
-          ),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _useCurrentLocation,
-          icon: const Icon(Icons.my_location, size: 18),
-          label: const Text('Refresh current location'),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-          ),
+    final loc = _selectedLocation;
+    if (loc == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.location_on, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Selected address',
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary.withValues(alpha: 0.9), fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(loc.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-              const SizedBox(height: 4),
-              Text(
-                loc.city.isNotEmpty ? '${loc.address}, ${loc.city}' : loc.address,
-                style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
+              const Icon(Icons.location_off_outlined, size: 48, color: AppColors.textSecondary),
+              const SizedBox(height: 12),
+              const Text('Location not ready', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _useCurrentLocation,
+                icon: const Icon(Icons.my_location),
+                label: const Text('Use current location'),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        TextButton.icon(
-          onPressed: _pickLocation,
-          icon: const Icon(Icons.edit_location_alt_outlined, size: 18),
-          label: const Text('Change location'),
+      );
+    }
+    final onMap = _nearbyWithinRadius;
+    final addressLine = loc.city.isNotEmpty ? '${loc.address}, ${loc.city}' : loc.address;
+
+    final onlineCount = onMap.length;
+
+    return ListView(
+      key: const PageStorageKey<String>('booking-step-pickup'),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      children: [
+        Stack(
+          children: [
+            BookingPickupMap(
+              pickupLat: loc.lat,
+              pickupLng: loc.lng,
+              pickupTitle: loc.displayName,
+              assistants: onMap,
+              height: 300,
+            ),
+            if (_gpsRefreshing)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Center(
+                    child: SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 12,
+              child: _MapOnlineBadge(
+                loading: _assistantsLoading,
+                count: onlineCount,
+                matchRadiusKm: _matchRadiusKm,
+                onRetry: _loadNearbyAssistants,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 0,
+          child: InkWell(
+            onTap: _pickLocation,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(Icons.location_on_rounded, color: AppColors.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(loc.displayName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text(addressLine, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.35), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _gpsRefreshing ? null : _useCurrentLocation,
+                icon: _gpsRefreshing
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.my_location, size: 18),
+                label: Text(_gpsRefreshing ? 'Updating…' : 'Use GPS'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _pickLocation,
+                icon: const Icon(Icons.edit_location_alt_outlined, size: 18),
+                label: const Text('Change'),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -677,7 +859,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+              colors: [AppColors.navy, Color(0xFF002A5C)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -764,6 +946,79 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
         Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
         Text('₹${amount.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withValues(alpha: 0.95), fontWeight: FontWeight.w600, fontSize: 14)),
       ],
+    );
+  }
+}
+
+class _MapOnlineBadge extends StatelessWidget {
+  final bool loading;
+  final int count;
+  final int matchRadiusKm;
+  final VoidCallback? onRetry;
+
+  const _MapOnlineBadge({
+    required this.loading,
+    required this.count,
+    required this.matchRadiusKm,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 8),
+            Text('Checking assistants…', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    final available = count > 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: available ? AppColors.successLight.withValues(alpha: 0.95) : const Color(0xFFFEE2E2).withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: available ? AppColors.success.withValues(alpha: 0.35) : const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            available ? Icons.check_circle_rounded : Icons.person_off_outlined,
+            size: 18,
+            color: available ? AppColors.success : AppColors.error,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              available
+                  ? '$count assistant${count == 1 ? '' : 's'} online within $matchRadiusKm km'
+                  : 'No assistants online nearby',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: available ? AppColors.navy : AppColors.error,
+              ),
+            ),
+          ),
+          if (!available && onRetry != null)
+            TextButton(
+              onPressed: onRetry,
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
+              child: const Text('Retry'),
+            ),
+        ],
+      ),
     );
   }
 }

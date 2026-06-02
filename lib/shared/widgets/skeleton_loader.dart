@@ -49,27 +49,29 @@ class HomeScreenSkeleton extends StatelessWidget {
             const SkeletonBox(width: 56, height: 40, radius: 12),
           ],
         ),
+        const SizedBox(height: 8),
+        const SkeletonBox(height: 188, radius: 22),
+        const SizedBox(height: 12),
+        const SkeletonBox(width: 80, height: 8, radius: 4),
         const SizedBox(height: 16),
-        const SkeletonBox(height: 48, radius: 14),
-        const SizedBox(height: 16),
-        const SkeletonBox(height: 160, radius: 20),
+        const SkeletonBox(height: 260, radius: 22),
         const SizedBox(height: 20),
-        const SkeletonBox(width: 220, height: 18, radius: 6),
+        const SkeletonBox(width: 120, height: 18, radius: 6),
         const SizedBox(height: 12),
         SizedBox(
-          height: 108,
+          height: 76,
           child: Row(
             children: List.generate(
-              4,
+              5,
               (i) => Padding(
-                padding: EdgeInsets.only(right: i == 3 ? 0 : 10),
-                child: const SkeletonBox(width: 84, height: 108, radius: 16),
+                padding: EdgeInsets.only(right: i == 4 ? 0 : 8),
+                child: const SkeletonBox(width: 72, height: 76, radius: 14),
               ),
             ),
           ),
         ),
         const SizedBox(height: 16),
-        const SkeletonBox(height: 240, radius: 20),
+        const SkeletonBox(height: 40, radius: 20),
       ],
     );
   }

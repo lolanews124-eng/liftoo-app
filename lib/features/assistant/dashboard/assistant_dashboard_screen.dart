@@ -8,6 +8,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../shared/assistant_online_confirm.dart';
+import '../requests/assistant_booking_request_flow.dart';
 import '../requests/booking_request_popup.dart';
 import '../shared/assistant_online_service.dart';
 import '../../../shared/models/booking_model.dart';
@@ -64,6 +65,11 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
     HapticFeedback.lightImpact();
     await setAssistantOnline(ref, targetOnline);
     if (targetOnline) await _load(silent: true);
+  }
+
+  Future<void> _openRequest(BookingModel booking) async {
+    await presentAssistantBookingRequest(ref, booking: booking);
+    await _load(silent: true);
   }
 
   Future<void> _acceptRequest(BookingModel booking) async {
@@ -366,7 +372,7 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+            colors: [AppColors.navy, Color(0xFF002A5C)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -610,7 +616,7 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
                     decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(10)),
                     child: Text('${_nearbyRequests.length}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
                   )
-                : TextButton(onPressed: () => context.go('/assistant/requests'), child: const Text('View all')),
+                : TextButton(onPressed: () => context.push('/assistant/nearby-requests'), child: const Text('View all')),
           ),
           const SizedBox(height: 12),
           if (!isOnline)
@@ -690,21 +696,22 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
               OutlinedButton(
                 onPressed: () => _rejectRequest(b),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: const Text('Reject', style: TextStyle(fontSize: 12)),
+                child: const Text('Reject', style: TextStyle(fontSize: 11)),
               ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: () => context.go('/assistant/requests'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              const SizedBox(width: 6),
+              FilledButton(
+                onPressed: () => _openRequest(b),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.navy,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: const Text('Details', style: TextStyle(fontSize: 12)),
+                child: const Text('Received', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               FilledButton(
                 onPressed: () => _acceptRequest(b),
                 style: FilledButton.styleFrom(

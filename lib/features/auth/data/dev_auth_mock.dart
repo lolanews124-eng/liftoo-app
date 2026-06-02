@@ -9,7 +9,13 @@ class DevAuthMock {
 
   static bool isValidOtp(String otp) => otp == '123456';
 
+  static final Set<String> _verifiedEmails = {};
+
   static String _key(String email) => email.trim().toLowerCase().replaceAll('@', '-at-');
+
+  static void markEmailVerified(String email) => _verifiedEmails.add(_key(email));
+
+  static bool isEmailVerified(String email) => _verifiedEmails.contains(_key(email));
 
   static UserModel _buildUser({
     required String id,
@@ -46,6 +52,7 @@ class DevAuthMock {
   }
 
   static ({UserModel user, bool isNew}) verify(String email) {
+    markEmailVerified(email);
     final id = 'dev-user-${_key(email)}';
     final user = _buildUser(
       id: id,

@@ -10,7 +10,6 @@ import '../../../shared/models/booking_model.dart';
 import '../../booking/shared/booking_realtime.dart';
 import '../booking/booking_flow.dart';
 import '../home/home_sheets.dart';
-import '../../../shared/widgets/assistant_availability_card.dart';
 import '../../../shared/widgets/live_tracking_map.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/gradient_button.dart';
@@ -46,6 +45,8 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
     _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       final b = _booking;
       if (b == null) return;
+      if (b.status == 'cancelled') return;
+      if (b.status == 'completed' && !b.isPaymentPending) return;
       if (!b.isActive && b.status != 'completed') return;
       _load(silent: true);
     });
@@ -70,7 +71,7 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
       context.go('/customer/bookings');
       return;
     }
-    if (b.status == 'completed' && b.payment == null) {
+    if (b.isPaymentPending) {
       _redirected = true;
       navigateBookingNextStep(context, b, overrideStep: 'pay');
     } else if (b.status == 'completed' && b.isPaid && !b.hasServiceReview) {
@@ -81,13 +82,23 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
 
   Future<void> _load({bool silent = false}) async {
     try {
-      final b = await ref.read(bookingRepositoryProvider).getBooking(widget.bookingId);
+      final b = await ref
+          .read(bookingRepositoryProvider)
+          .getBooking(widget.bookingId)
+          .timeout(const Duration(seconds: 15));
+      if (!mounted) return;
+      var active = b;
+      if (b.status == 'pending') {
+        try {
+          active = await ref.read(bookingRepositoryProvider).confirmBooking(b.id);
+        } catch (_) {}
+      }
       if (!mounted) return;
       setState(() {
-        _booking = b;
+        _booking = active;
         _error = null;
       });
-      _handlePostLoadRedirect(b);
+      _handlePostLoadRedirect(active);
     } catch (e) {
       if (!mounted || silent) return;
       setState(() => _error = NetworkErrors.userMessage(e));
@@ -168,19 +179,24 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
             ],
             if (b.status == 'searching') ...[
               const SizedBox(height: 16),
-              if (b.searchAvailability != null)
-                AssistantAvailabilityCard(availability: b.searchAvailability!)
-              else
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Column(
-                    children: [
-                      CircularProgressIndicator(color: AppColors.primary),
-                      SizedBox(height: 16),
-                      Text('Searching for nearby assistants...'),
-                    ],
-                  ),
+              LiftooCard(
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        b.searchAvailability?.message ?? 'Searching for verified assistants near you…',
+                        style: const TextStyle(fontWeight: FontWeight.w600, height: 1.35),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
             ],
             if (b.status == 'arriving' || (b.status == 'assigned' && b.serviceOtp != null)) ...[
               const SizedBox(height: 16),
@@ -267,7 +283,7 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
               const SizedBox(height: 16),
               ServiceTimerCard(booking: b),
             ],
-            if (b.status == 'completed' && b.payment == null) ...[
+            if (b.isPaymentPending) ...[
               const SizedBox(height: 16),
               GradientButton(
                 label: 'Proceed to Payment',

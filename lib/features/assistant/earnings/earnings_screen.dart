@@ -92,7 +92,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+                  colors: [AppColors.navy, Color(0xFF002A5C)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

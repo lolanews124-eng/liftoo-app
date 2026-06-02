@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/liftoo_card.dart';
+import 'assistant_booking_request_flow.dart';
 import 'booking_request_popup.dart';
 
 class RequestsScreen extends ConsumerStatefulWidget {
@@ -110,14 +111,22 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                               Expanded(
                                 child: OutlinedButton(
                                   onPressed: () => _reject(b),
-                                  child: const Text('Reject'),
+                                  child: const Text('Reject', style: TextStyle(fontSize: 12)),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton(
+                                  style: FilledButton.styleFrom(backgroundColor: AppColors.navy),
+                                  onPressed: () => presentAssistantBookingRequest(ref, booking: b),
+                                  child: const Text('Received', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: ElevatedButton(
                                   onPressed: () => _accept(b),
-                                  child: const Text('Accept'),
+                                  child: const Text('Accept', style: TextStyle(fontSize: 12)),
                                 ),
                               ),
                             ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../core/layout/screen_safe_padding.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/theme/app_colors.dart';
@@ -9,6 +10,7 @@ import '../../../shared/models/booking_model.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/network_error_state.dart';
+import '../../../shared/widgets/booking_detail_sheet.dart';
 import '../../../shared/widgets/skeleton_loader.dart';
 import '../booking/booking_flow.dart';
 import '../booking/cancel_booking_dialog.dart';
@@ -71,8 +73,41 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen> with Single
     _load('cancelled');
   }
 
-  void _openBooking(BookingModel b) {
-    navigateBookingNextStep(context, b);
+  void _showBookingDetail(BookingModel b, String tabStatus) {
+    String? primaryLabel;
+    VoidCallback? primaryAction;
+    String? secondaryLabel;
+    VoidCallback? secondaryAction;
+
+    if (b.isActive) {
+      primaryLabel = 'Track live';
+      primaryAction = () => context.push('/customer/booking/${b.id}');
+      if (tabStatus == 'upcoming' && b.status != 'started') {
+        secondaryLabel = 'Cancel booking';
+        secondaryAction = () => _cancel(b);
+      }
+    } else if (b.status == 'completed') {
+      if (!b.isPaid) {
+        primaryLabel = 'Pay now';
+        primaryAction = () => context.push('/customer/payment/${b.id}');
+      } else if (!b.hasServiceReview) {
+        primaryLabel = 'Rate service';
+        primaryAction = () => openServiceReview(context, b.id);
+      } else if (!b.hasAppReview) {
+        primaryLabel = 'Rate app';
+        primaryAction = () => openAppReview(context, b.id);
+      }
+    }
+
+    showBookingDetailSheet(
+      context,
+      booking: b,
+      isAssistantView: false,
+      primaryActionLabel: primaryLabel,
+      onPrimaryAction: primaryAction,
+      secondaryActionLabel: secondaryLabel,
+      onSecondaryAction: secondaryAction,
+    );
   }
 
   @override
@@ -113,14 +148,14 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen> with Single
           return RefreshIndicator(
             onRefresh: () => _load(status),
             child: ListView.builder(
-              padding: const EdgeInsets.all(20),
+              padding: shellScrollPadding(context, top: 8),
               itemCount: list.length,
               itemBuilder: (context, i) {
                 final b = list[i];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: LiftooCard(
-                    onTap: () => _openBooking(b),
+                    onTap: () => _showBookingDetail(b, status),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -131,9 +166,17 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen> with Single
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)),
-                              child: Text(b.status, style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                              decoration: BoxDecoration(
+                                color: bookingStatusColor(b.status).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                formatBookingStatusLabel(b.status),
+                                style: TextStyle(color: bookingStatusColor(b.status), fontSize: 12, fontWeight: FontWeight.w700),
+                              ),
                             ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
                           ],
                         ),
                         const SizedBox(height: 8),

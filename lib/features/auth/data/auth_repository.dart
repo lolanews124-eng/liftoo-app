@@ -5,6 +5,7 @@ import '../../../core/storage/token_storage.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../core/dev/dev_data_store.dart';
 import 'dev_auth_mock.dart';
+import 'login_result.dart';
 
 class AuthRepository {
   final ApiClient _api;
@@ -20,16 +21,52 @@ class AuthRepository {
 
   String _mockKey(String email) => email.trim().toLowerCase().replaceAll('@', '-at-');
 
-  Future<void> loginWithEmail(String email, String password) async {
+  Future<void> _persistSession(Map<String, dynamic> data) async {
+    await _storage.saveTokens(
+      accessToken: data['accessToken'] as String,
+      refreshToken: data['refreshToken'] as String,
+    );
+    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+    if (user.activeRole != null) {
+      await _storage.saveRole(user.activeRole!);
+    }
+    final token = await _storage.getAccessToken();
+    if (token != null) _socket.connect(token);
+  }
+
+  Future<LoginResult> loginWithEmail(String email, String password) async {
     try {
-      await _api.post('/api/v1/auth/login', data: {
+      final data = await _api.post<Map<String, dynamic>>('/api/v1/auth/login', data: {
         'email': email.trim(),
         'password': password,
       });
+      if (data['requiresOtp'] == false && data['accessToken'] != null) {
+        await _persistSession(data);
+        final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+        return LoginResult(requiresOtp: false, user: user, isNewUser: data['isNewUser'] as bool? ?? false);
+      }
+      return const LoginResult(requiresOtp: true);
     } catch (e) {
-      if (DevAuthMock.isEnabled && _isConnectionError(e)) return;
+      if (DevAuthMock.isEnabled && _isConnectionError(e)) {
+        if (DevAuthMock.isEmailVerified(email)) {
+          return _mockDirectLogin(email);
+        }
+        return const LoginResult(requiresOtp: true);
+      }
       rethrow;
     }
+  }
+
+  Future<LoginResult> _mockDirectLogin(String email) async {
+    final result = DevAuthMock.verify(email);
+    final key = _mockKey(email);
+    await _storage.saveTokens(
+      accessToken: 'dev-mock-$key',
+      refreshToken: 'dev-refresh-$key',
+    );
+    final token = await _storage.getAccessToken();
+    if (token != null) _socket.connect(token);
+    return LoginResult(requiresOtp: false, user: result.user, isNewUser: false);
   }
 
   Future<void> resendEmailOtp(String email, String password) async {
@@ -53,16 +90,8 @@ class AuthRepository {
           if (referralCode != null) 'referralCode': referralCode,
         },
       );
-      await _storage.saveTokens(
-        accessToken: data['accessToken'] as String,
-        refreshToken: data['refreshToken'] as String,
-      );
+      await _persistSession(data);
       final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-      if (user.activeRole != null) {
-        await _storage.saveRole(user.activeRole!);
-      }
-      final token = await _storage.getAccessToken();
-      if (token != null) _socket.connect(token);
       return (user: user, isNew: data['isNewUser'] as bool? ?? false);
     } catch (e) {
       if (DevAuthMock.isEnabled &&
@@ -81,6 +110,8 @@ class AuthRepository {
       accessToken: 'dev-mock-$key',
       refreshToken: 'dev-refresh-$key',
     );
+    final token = await _storage.getAccessToken();
+    if (token != null) _socket.connect(token);
     return result;
   }
 

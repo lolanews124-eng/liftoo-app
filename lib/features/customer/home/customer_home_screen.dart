@@ -3,16 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/location/location_service.dart';
 import '../../../core/dev/dev_data_store.dart';
+import '../../../core/realtime/notification_listener.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../../shared/models/service_location_model.dart';
-import '../../../shared/widgets/gradient_button.dart';
-import '../../../shared/widgets/hero_assistant.dart';
 import '../../../shared/widgets/skeleton_loader.dart';
 import 'home_sheets.dart';
 import 'quick_book_draft.dart';
+import 'widgets/home_hero_carousel.dart';
+import 'widgets/home_quick_book_card.dart';
+import 'widgets/home_referral_banner.dart';
+import 'widgets/home_services_strip.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -24,7 +27,7 @@ class CustomerHomeScreen extends ConsumerStatefulWidget {
 class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   List<ServiceCategoryModel> _categories = [];
   BookingModel? _activeBooking;
-  int _notifCount = 0;
+  int _referralReward = 100;
   bool _loading = true;
 
   ServiceLocationModel? _selectedLocation;
@@ -33,7 +36,6 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   String _service = 'Bag Carry';
   String? _categorySlug = 'bag_carry';
   int _durationMin = 60;
-  String? _availabilityMessage;
 
   @override
   void initState() {
@@ -64,17 +66,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
         _selectedLocation = gps;
         _locationLoading = false;
       });
-      _loadAvailabilitySummary(gps.lat, gps.lng);
     }
-  }
-
-  Future<void> _loadAvailabilitySummary(double lat, double lng) async {
-    try {
-      final summary = await ref.read(bookingRepositoryProvider).getAvailabilitySummary(lat: lat, lng: lng);
-      if (mounted) {
-        setState(() => _availabilityMessage = summary['message'] as String?);
-      }
-    } catch (_) {}
   }
 
   Future<void> _loadAddresses() async {
@@ -97,10 +89,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
         bookingRepo.getCategories(),
         bookingRepo.getBookings(status: 'upcoming'),
         walletRepo.getNotifications(),
+        walletRepo.getReferrals(),
       ]);
       final cats = results[0] as List<ServiceCategoryModel>;
       final bookings = results[1] as List<BookingModel>;
       final notifs = results[2];
+      final referralInfo = results[3] as Map<String, dynamic>;
+      final reward = (referralInfo['rewardPerReferral'] as num?)?.toInt() ?? 100;
       if (mounted) {
         setState(() {
           _categories = cats;
@@ -109,7 +104,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             _service = _shortName(cats.first.name);
           }
           _activeBooking = bookings.isNotEmpty ? bookings.first : null;
-          _notifCount = (notifs as List).where((n) => (n as Map)['readAt'] == null).length;
+          _referralReward = reward;
+          ref.read(unreadNotificationCountProvider.notifier).state =
+              notifs.where((n) => (n as Map)['readAt'] == null).length;
           _loading = false;
         });
       }
@@ -119,7 +116,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
         setState(() {
           _categories = DevDataStore.categories;
           _activeBooking = DevDataStore.instance.getActiveBooking();
-          _notifCount = DevDataStore.instance.unreadNotificationCount;
+          _referralReward =
+              (DevDataStore.instance.getReferrals()['rewardPerReferral'] as num?)?.toInt() ?? 100;
+          ref.read(unreadNotificationCountProvider.notifier).state =
+              DevDataStore.instance.unreadNotificationCount;
           _loading = false;
         });
       }
@@ -150,6 +150,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
+    final notifCount = ref.watch(unreadNotificationCountProvider);
     final wallet = user?.walletBalance ?? DevDataStore.instance.walletBalance;
     final name = user?.name?.split(' ').first ?? 'there';
 
@@ -163,7 +164,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                 children: [
                   ColoredBox(
                     color: AppColors.surface,
-                    child: _buildTopBar(name, wallet),
+                    child: _buildTopBar(name, wallet, notifCount),
                   ),
                   Expanded(
                     child: RefreshIndicator(
@@ -173,10 +174,14 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                         padding: EdgeInsets.zero,
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: [
-                          _buildHeroBanner(),
+                          const SizedBox(height: 4),
+                          HomeHeroCarousel(onBookTap: () => _openBooking()),
+                          _buildQuickBookSection(),
                           _buildCategoriesSection(),
-                          _buildPopularVenues(),
-                          _buildQuickBookCard(),
+                          HomeReferralBanner(
+                            rewardAmount: _referralReward,
+                            onTap: () => context.push('/referral'),
+                          ),
                           if (_activeBooking != null) _buildActiveBooking(_activeBooking!),
                           const SizedBox(height: 100),
                         ],
@@ -189,7 +194,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     );
   }
 
-  Widget _buildTopBar(String name, double wallet) {
+  Widget _buildTopBar(String name, double wallet, int notifCount) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Row(
@@ -210,7 +215,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
           const SizedBox(width: 8),
           _iconBtn(
             Icons.notifications_outlined,
-            badge: _notifCount > 0 ? '$_notifCount' : null,
+            badge: notifCount > 0 ? '$notifCount' : null,
             onTap: () => context.push('/notifications'),
           ),
           const SizedBox(width: 8),
@@ -257,7 +262,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppColors.charcoal, Color(0xFF2D2D2D)]),
+        gradient: const LinearGradient(colors: [AppColors.navy, Color(0xFF002A5C)]),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -271,349 +276,34 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     );
   }
 
-  Widget _buildHeroBanner() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.heroGradient,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(color: AppColors.primary.withValues(alpha: 0.12), blurRadius: 20, offset: const Offset(0, 8)),
-          ],
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const Positioned(right: 0, bottom: 0, child: HeroAssistantIllustration()),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text('⚡ Instant booking', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11)),
-                  ),
-                  const SizedBox(height: 10),
-                  if (_availabilityMessage != null && _availabilityMessage!.isNotEmpty) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        _availabilityMessage!,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  const Text(
-                    'Shop without\ncarrying bags',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, height: 1.2, color: AppColors.charcoal),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: 210,
-                    child: Text(
-                      'Verified assistants for malls, markets & exhibitions.',
-                      style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.95), fontSize: 12, height: 1.45),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => _openBooking(),
-                    icon: const Icon(Icons.arrow_forward, size: 16),
-                    label: const Text('Book Assistant'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget _buildQuickBookSection() {
+    return HomeQuickBookCard(
+      locationLabel: _locationLabel,
+      serviceLabel: _service,
+      durationLabel: _durationLabel,
+      locationLoading: _locationLoading,
+      onLocationTap: () async {
+        final picked = await showLocationPicker(context, ref, _selectedLocation, savedLocations: _savedLocations);
+        if (picked != null) setState(() => _selectedLocation = picked);
+      },
+      onServiceTap: () => _openBooking(_draft),
+      onDurationTap: () async {
+        final picked = await showDurationPicker(context, _durationMin);
+        if (picked != null) setState(() => _durationMin = picked);
+      },
+      onFindAssistant: () => _openBooking(_draft),
     );
   }
 
   Widget _buildCategoriesSection() {
     final items = _categories.isNotEmpty ? _categories : DevDataStore.categories;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Services', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-              TextButton(onPressed: () => _openBooking(), child: const Text('View all', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700))),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 100,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: items.length,
-            itemBuilder: (context, i) {
-              final c = items[i];
-              final selected = _categorySlug == c.slug;
-              final color = AppColors.categoryColor(c.slug);
-              final label = _shortName(c.name);
-              return GestureDetector(
-                onTap: () => _selectService(c),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 96,
-                  margin: const EdgeInsets.only(right: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        color.withValues(alpha: selected ? 0.28 : 0.18),
-                        color.withValues(alpha: selected ? 0.12 : 0.06),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: selected ? color : color.withValues(alpha: 0.25), width: selected ? 2 : 1),
-                    boxShadow: [
-                      BoxShadow(color: color.withValues(alpha: selected ? 0.18 : 0.08), blurRadius: 10, offset: const Offset(0, 3)),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(10)),
-                        child: Icon(_iconFor(c.slug), color: color, size: 18),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          height: 1.1,
-                          fontWeight: FontWeight.w700,
-                          color: selected ? color : AppColors.charcoal,
-                        ),
-                      ),
-                      Text(
-                        '₹${c.baseRate.toInt()}/hr',
-                        style: TextStyle(
-                          fontSize: 9,
-                          height: 1.1,
-                          fontWeight: FontWeight.w600,
-                          color: color.withValues(alpha: 0.85),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPopularVenues() {
-    final chips = <Widget>[
-      Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: FilterChip(
-          avatar: const Icon(Icons.my_location, size: 16),
-          label: Text(
-            _selectedLocation?.isCurrentLocation == true ? 'Current location' : 'Use GPS',
-            style: TextStyle(
-              fontWeight: _selectedLocation?.isCurrentLocation == true ? FontWeight.w700 : FontWeight.w500,
-              fontSize: 12,
-            ),
-          ),
-          selected: _selectedLocation?.isCurrentLocation == true,
-          onSelected: (_) async {
-            setState(() => _locationLoading = true);
-            final gps = await LocationService.resolveCurrentLocation();
-            if (mounted) {
-              setState(() {
-                _selectedLocation = gps;
-                _locationLoading = false;
-              });
-              _loadAvailabilitySummary(gps.lat, gps.lng);
-            }
-          },
-          selectedColor: AppColors.primaryLight,
-          checkmarkColor: AppColors.primary,
-          backgroundColor: Colors.white,
-          side: BorderSide(
-            color: _selectedLocation?.isCurrentLocation == true ? AppColors.primary : Colors.grey.shade200,
-          ),
-        ),
-      ),
-      ..._savedLocations.take(4).map((loc) {
-        final selected = _selectedLocation?.id == loc.id;
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: FilterChip(
-            label: Text(loc.name, style: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w500, fontSize: 12)),
-            selected: selected,
-            onSelected: (_) => setState(() => _selectedLocation = loc),
-            selectedColor: AppColors.primaryLight,
-            checkmarkColor: AppColors.primary,
-            backgroundColor: Colors.white,
-            side: BorderSide(color: selected ? AppColors.primary : Colors.grey.shade200),
-          ),
-        );
-      }),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 10),
-          child: Text('Pickup near you', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-        ),
-        SizedBox(
-          height: 40,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: chips,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickBookCard() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.charcoal,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 24, offset: const Offset(0, 10)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.bolt, color: AppColors.primary, size: 20),
-                ),
-                const SizedBox(width: 10),
-                const Expanded(child: Text('Quick Book', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18))),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
-                  child: const Text('From ₹49', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: _quickField(Icons.location_on_outlined, 'Location', _locationLabel, () async {
-                  final picked = await showLocationPicker(context, ref, _selectedLocation, savedLocations: _savedLocations);
-                  if (picked != null) {
-                    setState(() => _selectedLocation = picked);
-                    _loadAvailabilitySummary(picked.lat, picked.lng);
-                  }
-                })),
-                const SizedBox(width: 10),
-                Expanded(child: _quickField(Icons.shopping_bag_outlined, 'Service', _service, () => _openBooking(_draft))),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(child: _quickField(Icons.timer_outlined, 'Duration', _durationLabel, () async {
-                  final picked = await showDurationPicker(context, _durationMin);
-                  if (picked != null) setState(() => _durationMin = picked);
-                })),
-              ],
-            ),
-            const SizedBox(height: 16),
-            GradientButton(label: 'Find Assistant', icon: Icons.arrow_forward, onPressed: () => _openBooking(_draft), radius: 14),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _trustChip(Icons.verified_user_outlined, 'Verified'),
-                _trustChip(Icons.access_time, 'On-time'),
-                _trustChip(Icons.shield_outlined, 'Secure'),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _quickField(IconData icon, String label, String value, VoidCallback onTap) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, size: 14, color: AppColors.textSecondary),
-                  const SizedBox(width: 4),
-                  Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _trustChip(IconData icon, String label) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white54, size: 20),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600)),
-      ],
+    return HomeServicesStrip(
+      categories: items,
+      selectedSlug: _categorySlug,
+      shortName: _shortName,
+      iconFor: _iconFor,
+      onTap: _selectService,
+      onViewAll: () => _openBooking(),
     );
   }
 

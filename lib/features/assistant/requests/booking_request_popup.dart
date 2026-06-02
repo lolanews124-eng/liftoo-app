@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/keyboard_aware_scroll.dart';
 import '../../../shared/models/booking_model.dart';
@@ -51,30 +52,12 @@ class _RejectReasonDialogState extends State<_RejectReasonDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.close_rounded, color: AppColors.error),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Reject request',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
-            ),
+            const Text('Reject request', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 12),
             Text(
               widget.venueName != null
-                  ? 'Tell us why you cannot take the booking at ${widget.venueName}.'
-                  : 'Tell us why you cannot take this booking.',
+                  ? 'Why can you not take the booking at ${widget.venueName}?'
+                  : 'Why can you not take this booking?',
               style: const TextStyle(color: AppColors.textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -84,7 +67,7 @@ class _RejectReasonDialogState extends State<_RejectReasonDialog> {
               maxLength: 200,
               scrollPadding: keyboardScrollPadding(context),
               decoration: InputDecoration(
-                hintText: 'e.g. Too far, already busy, vehicle issue…',
+                hintText: 'e.g. Too far, already busy…',
                 errorText: _error,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
               ),
@@ -92,15 +75,10 @@ class _RejectReasonDialogState extends State<_RejectReasonDialog> {
                 if (_error != null) setState(() => _error = null);
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                ),
+                Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))),
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
@@ -126,6 +104,7 @@ Future<void> showBookingRequestPopup(
 }) {
   return showGeneralDialog(
     context: context,
+    useRootNavigator: true,
     barrierDismissible: false,
     barrierLabel: 'Booking request',
     transitionDuration: const Duration(milliseconds: 280),
@@ -163,101 +142,99 @@ class _BookingRequestPopup extends StatelessWidget {
     final earn = (booking.serviceFee * 0.8).toStringAsFixed(0);
     return Material(
       color: Colors.black54,
-      child: Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.15),
-                blurRadius: 32,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.75)],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 36),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'New booking request',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                booking.category?.name ?? 'Shopping assistance',
-                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 16),
-              _infoRow(Icons.storefront_outlined, booking.venueName),
-              _infoRow(Icons.place_outlined, booking.addressFormatted),
-              _infoRow(Icons.timer_outlined, '${booking.durationMin} minutes'),
-              if (booking.distanceKm != null)
-                _infoRow(Icons.near_me_outlined, '${booking.distanceKm} km away'),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  'You earn ~₹$earn',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                    color: AppColors.success,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _reject(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('Reject', style: TextStyle(fontWeight: FontWeight.w700)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        onAccept();
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('Accept', style: TextStyle(fontWeight: FontWeight.w800)),
-                    ),
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    blurRadius: 32,
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
-            ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.75)],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 36),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('New booking request', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 6),
+                  Text(
+                    booking.category?.name ?? 'Shopping assistance',
+                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 16),
+                  _infoRow(Icons.storefront_outlined, booking.venueName),
+                  _infoRow(Icons.place_outlined, booking.addressFormatted),
+                  _infoRow(Icons.timer_outlined, '${booking.durationMin} minutes'),
+                  if (booking.distanceKm != null)
+                    _infoRow(Icons.near_me_outlined, '${booking.distanceKm} km away'),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      'You earn ~₹$earn',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.success),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _reject(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: const Text('Reject', style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: FilledButton(
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            Navigator.pop(context);
+                            onAccept();
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: const Text('Accept', style: TextStyle(fontWeight: FontWeight.w800)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -271,7 +248,9 @@ class _BookingRequestPopup extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: AppColors.textSecondary),
           const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
+          Expanded(
+            child: Text(text, style: const TextStyle(fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ),
         ],
       ),
     );
