@@ -93,7 +93,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       ]);
       final cats = results[0] as List<ServiceCategoryModel>;
       final bookings = results[1] as List<BookingModel>;
-      final notifs = results[2];
+      final notifs = results[2] as List<dynamic>;
       final referralInfo = results[3] as Map<String, dynamic>;
       final reward = (referralInfo['rewardPerReferral'] as num?)?.toInt() ?? 100;
       if (mounted) {
