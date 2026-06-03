@@ -1,0 +1,90 @@
+import 'dart:io';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../providers/providers.dart';
+import '../../firebase_options.dart';
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+}
+
+/// Registers FCM token with Liftoo API after login.
+class PushNotificationService {
+  PushNotificationService._();
+  static final PushNotificationService instance = PushNotificationService._();
+
+  bool _initialized = false;
+  ProviderContainer? _container;
+
+  Future<void> init(ProviderContainer container) async {
+    _container = container;
+    if (kIsWeb || _initialized) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+
+    try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      }
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+      final messaging = FirebaseMessaging.instance;
+      await messaging.setAutoInitEnabled(true);
+
+      if (Platform.isAndroid) {
+        await messaging.requestPermission(alert: true, badge: true, sound: true);
+      } else {
+        await messaging.requestPermission(alert: true, badge: true, sound: true);
+      }
+
+      messaging.onTokenRefresh.listen((token) {
+        final c = _container;
+        if (c != null) _syncToken(c, token);
+      });
+
+      final token = await messaging.getToken();
+      if (token != null) _syncToken(container, token);
+
+      _initialized = true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[FCM] init skipped: $e');
+      }
+    }
+  }
+
+  Future<void> syncAfterLogin(Ref ref) async {
+    if (!_initialized) {
+      await init(ref.container);
+      return;
+    }
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) await _syncToken(ref.container, token);
+    } catch (_) {}
+  }
+
+  Future<void> clearToken(Ref ref) async {
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.put<Map<String, dynamic>>('/api/v1/users/me/fcm-token', data: {'token': null});
+    } catch (_) {}
+    try {
+      await FirebaseMessaging.instance.deleteToken();
+    } catch (_) {}
+  }
+
+  Future<void> _syncToken(ProviderContainer container, String token) async {
+    if (token.isEmpty) return;
+    try {
+      final api = container.read(apiClientProvider);
+      await api.put<Map<String, dynamic>>('/api/v1/users/me/fcm-token', data: {'token': token});
+    } catch (e) {
+      if (kDebugMode) debugPrint('[FCM] token sync failed: $e');
+    }
+  }
+}

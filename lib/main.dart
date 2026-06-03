@@ -1,5 +1,7 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,7 @@ import 'core/config/app_config.dart';
 import 'core/permissions/app_permissions_service.dart';
 import 'core/providers/providers.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'core/push/push_notification_service.dart';
 
 Future<void> _waitForAuthReady(ProviderContainer container) async {
   const maxAttempts = 120;
@@ -18,9 +21,26 @@ Future<void> _waitForAuthReady(ProviderContainer container) async {
   }
 }
 
+Future<void> _initFirebase() async {
+  if (kIsWeb) return;
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('[Firebase] init skipped: $e');
+    }
+  }
+}
+
 Future<void> main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  await _initFirebase();
 
   if (kDebugMode) {
     debugPrint('[Config] apiUrl=${AppConfig.apiUrl}');
@@ -59,6 +79,7 @@ Future<void> main() async {
     Future<void>.delayed(const Duration(seconds: 2)),
     AppPermissionsService.requestAllAtStartup(),
     _waitForAuthReady(container),
+    PushNotificationService.instance.init(container),
   ]);
 
   FlutterNativeSplash.remove();

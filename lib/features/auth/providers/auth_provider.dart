@@ -3,6 +3,7 @@ import '../../../core/providers/providers.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../core/network/network_errors.dart';
 import '../../assistant/shared/assistant_availability_tracker.dart';
+import '../../../core/push/push_notification_service.dart';
 import '../data/login_result.dart';
 
 class AuthState {
@@ -31,6 +32,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final user = await ref.read(authRepositoryProvider).getCurrentUser();
       state = AuthState(user: user, isLoading: false);
+      if (user != null) {
+        await PushNotificationService.instance.syncAfterLogin(ref);
+      }
     } catch (_) {
       state = const AuthState(isLoading: false);
     }
@@ -42,6 +46,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final result = await ref.read(authRepositoryProvider).loginWithEmail(email, password);
       if (!result.requiresOtp && result.user != null) {
         state = AuthState(user: result.user, isLoading: false);
+        await PushNotificationService.instance.syncAfterLogin(ref);
       } else {
         state = state.copyWith(isLoading: false);
       }
@@ -70,6 +75,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             referralCode: referralCode,
           );
       state = AuthState(user: result.user, isLoading: false);
+      await PushNotificationService.instance.syncAfterLogin(ref);
       return result;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: NetworkErrors.userMessage(e));
@@ -103,6 +109,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     ref.read(assistantAvailabilityTrackerProvider).stop();
+    await PushNotificationService.instance.clearToken(ref);
     await ref.read(authRepositoryProvider).logout();
     state = const AuthState();
   }
