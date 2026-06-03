@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/layout/screen_safe_padding.dart';
+import '../../../core/legal/legal_links.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/user_model.dart';
@@ -110,7 +111,12 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
           _tile(Icons.headset_mic_outlined, 'Support', () => showSupportSheet(context)),
           _tile(Icons.help_outline, 'Help', () => showHelpSheet(context)),
           _tile(Icons.notifications_outlined, 'Notifications', () => context.push('/notifications')),
-          _tile(Icons.policy_outlined, 'Legal & policies', () => context.push('/legal')),
+          _tile(Icons.policy_outlined, 'Legal & policies', () async {
+            final ok = await openLegalIndex();
+            if (!ok && context.mounted) {
+              showAppErrorSnackBar(context, Exception('Could not open liftoo.in. Check browser app.'));
+            }
+          }),
           const SizedBox(height: 24),
           TextButton.icon(
             onPressed: () async {

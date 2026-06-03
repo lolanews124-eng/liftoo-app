@@ -45,7 +45,17 @@ class _AssistantRequestListenerState extends ConsumerState<AssistantRequestListe
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_onAppResumed());
+    } else if (state == AppLifecycleState.detached) {
+      unawaited(_goOfflineOnAppExit());
     }
+  }
+
+  Future<void> _goOfflineOnAppExit() async {
+    if (!assistantCanReceiveRequests(ref)) return;
+    try {
+      ref.read(assistantAvailabilityTrackerProvider).stop();
+      await ref.read(bookingRepositoryProvider).setOnline(false);
+    } catch (_) {}
   }
 
   Future<void> _onAppResumed() async {

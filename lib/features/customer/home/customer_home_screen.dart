@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/location/location_service.dart';
 import '../../../core/dev/dev_data_store.dart';
+import '../../../core/dev/dev_mock.dart';
 import '../../../core/realtime/notification_listener.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -113,8 +114,11 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
           _loading = false;
         });
       }
-    } catch (_) {
-      if (mounted) {
+    } catch (e) {
+      if (!mounted) return;
+      final useMock = await devIsMockSession(ref.read(tokenStorageProvider)) ||
+          (DevDataStore.enabled && devShouldUseMock(e));
+      if (useMock) {
         DevDataStore.instance.ensureSeeded();
         ref.invalidate(customerBlockingBookingProvider);
         setState(() {
@@ -126,6 +130,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
               DevDataStore.instance.unreadNotificationCount;
           _loading = false;
         });
+      } else if (mounted) {
+        setState(() => _loading = false);
       }
     }
   }
@@ -371,13 +377,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             const SizedBox(height: 10),
             Text('📍 ${b.venueName}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             if (!b.isPaymentPending && b.assistant != null) ...[
-              const SizedBox(height: 10),
-              AssistantIdBadge(assistant: b.assistant, compact: true),
               const SizedBox(height: 8),
               Text(
                 '$assistantName • ★ ${rating.toStringAsFixed(1)} • ${b.category?.name ?? "Service"}',
                 style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
+              const SizedBox(height: 6),
+              AssistantIdLine(assistant: b.assistant),
             ] else if (b.isPaymentPending) ...[
               const SizedBox(height: 10),
               Text(

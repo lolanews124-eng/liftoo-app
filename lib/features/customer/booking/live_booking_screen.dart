@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/network/network_errors.dart';
@@ -31,6 +32,8 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
   BookingModel? _booking;
   String? _error;
   Timer? _pollTimer;
+  final _cashOtpCtrl = TextEditingController();
+  bool _cashConfirmLoading = false;
 
   @override
   void initState() {
@@ -56,8 +59,28 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _cashOtpCtrl.dispose();
     stopBookingUpdates(ref);
     super.dispose();
+  }
+
+  Future<void> _confirmCashOnLive(BookingModel b) async {
+    final otp = _cashOtpCtrl.text.trim();
+    if (otp.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter 4-digit OTP from assistant')));
+      return;
+    }
+    setState(() => _cashConfirmLoading = true);
+    try {
+      await ref.read(bookingRepositoryProvider).confirmCashPayment(widget.bookingId, otp);
+      if (mounted) await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(NetworkErrors.userMessage(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _cashConfirmLoading = false);
+    }
   }
 
   bool _redirected = false;
@@ -72,10 +95,7 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
       context.go('/customer/bookings');
       return;
     }
-    if (b.isPaymentPending) {
-      _redirected = true;
-      navigateBookingNextStep(context, b, overrideStep: 'pay');
-    } else if (b.status == 'completed' && b.isPaid && !b.hasServiceReview) {
+    if (b.status == 'completed' && b.isPaid && !b.hasServiceReview) {
       _redirected = true;
       navigateBookingNextStep(context, b, overrideStep: 'rate_service');
     }
@@ -286,10 +306,7 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
             ],
             if (b.isPaymentPending) ...[
               const SizedBox(height: 16),
-              GradientButton(
-                label: 'Proceed to Payment',
-                onPressed: () => context.push('/customer/payment/${b.id}'),
-              ),
+              _paymentPendingCard(b),
             ],
           ],
         ),
@@ -320,8 +337,6 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(assistantNameFrom(b.assistant), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                const SizedBox(height: 8),
-                AssistantIdBadge(assistant: b.assistant, compact: true),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -334,6 +349,8 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
                     Text('$totalJobs jobs', style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
                   ],
                 ),
+                const SizedBox(height: 6),
+                AssistantIdLine(assistant: b.assistant),
                 if (b.tracking?.etaMinutes != null && b.status == 'arriving')
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
@@ -353,6 +370,61 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
           IconButton(
             onPressed: () => callAssistant(assistantPhone),
             icon: const Icon(Icons.phone, color: AppColors.primary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _paymentPendingCard(BookingModel b) {
+    final cashReady = b.isCashAwaitingCustomerConfirm;
+    final cashStarted = b.payment?['method'] == 'cash';
+
+    return LiftooCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Service complete — payment due', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          const SizedBox(height: 8),
+          Text(
+            'Pay ₹${b.totalAmount.toStringAsFixed(0)} to close this booking.',
+            style: const TextStyle(color: AppColors.textSecondary, height: 1.35),
+          ),
+          if (cashStarted || cashReady) ...[
+            const SizedBox(height: 14),
+            const Text('Cash payment OTP', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            const SizedBox(height: 6),
+            Text(
+              cashReady
+                  ? 'Assistant confirmed cash. Enter the 4-digit OTP from their phone.'
+                  : 'Pay cash to assistant, then ask them to tap "Cash received" in their app.',
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.35),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _cashOtpCtrl,
+              enabled: cashReady,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: 'Payment OTP',
+                hintText: cashReady ? '4 digits from assistant' : 'Waiting for assistant…',
+              ),
+            ),
+            if (cashReady) ...[
+              const SizedBox(height: 10),
+              GradientButton(
+                label: 'Confirm cash payment',
+                isLoading: _cashConfirmLoading,
+                onPressed: _cashConfirmLoading ? null : () => _confirmCashOnLive(b),
+              ),
+            ],
+          ],
+          const SizedBox(height: 12),
+          GradientButton(
+            label: cashReady ? 'More payment options' : 'Proceed to Payment',
+            onPressed: () => context.push('/customer/payment/${b.id}'),
           ),
         ],
       ),

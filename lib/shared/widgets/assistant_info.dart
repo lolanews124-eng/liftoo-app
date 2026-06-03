@@ -12,47 +12,27 @@ String? assistantCodeFrom(Map<String, dynamic>? assistant) {
 String assistantNameFrom(Map<String, dynamic>? assistant) =>
     (assistant?['name'] as String?)?.trim().isNotEmpty == true ? assistant!['name'] as String : 'Assistant';
 
-/// One-line label: "Rahul · ID Liftoo-2026-0001"
-String assistantSummaryLine(Map<String, dynamic>? assistant) {
-  final name = assistantNameFrom(assistant);
-  final code = assistantCodeFrom(assistant);
-  if (code != null) return '$name · ID $code';
-  return name;
-}
+/// Name only — use [AssistantIdLine] below rating/review for the ID.
+String assistantSummaryLine(Map<String, dynamic>? assistant) => assistantNameFrom(assistant);
 
-/// Prominent ID badge for customer to verify physical ID card.
-class AssistantIdBadge extends StatelessWidget {
+/// Pink bold ID below assistant name / rating row: `ID: Liftoo-2026-0003`
+class AssistantIdLine extends StatelessWidget {
   final Map<String, dynamic>? assistant;
-  final bool compact;
 
-  const AssistantIdBadge({super.key, required this.assistant, this.compact = false});
+  const AssistantIdLine({super.key, required this.assistant});
 
   @override
   Widget build(BuildContext context) {
     final code = assistantCodeFrom(assistant);
     if (code == null) return const SizedBox.shrink();
 
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: compact ? 6 : 8),
-      decoration: BoxDecoration(
-        color: AppColors.navy,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.badge_outlined, color: Colors.white.withValues(alpha: 0.9), size: compact ? 16 : 18),
-          const SizedBox(width: 8),
-          Text(
-            'Assistant ID: $code',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: compact ? 12 : 13,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
+    return Text(
+      'ID: $code',
+      style: const TextStyle(
+        color: AppColors.primary,
+        fontWeight: FontWeight.w800,
+        fontSize: 13,
+        letterSpacing: 0.2,
       ),
     );
   }

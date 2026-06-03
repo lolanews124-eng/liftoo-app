@@ -102,9 +102,9 @@ Future<void> showBookingDetailSheet(
                   if (isAssistantView && booking.customer != null)
                     _detailRow(Icons.person_outline, 'Customer', booking.customer!['name'] as String? ?? 'Customer'),
                   if (!isAssistantView && booking.assistant != null) ...[
-                    _detailRow(Icons.support_agent_outlined, 'Assistant', assistantSummaryLine(booking.assistant)),
+                    _detailRow(Icons.support_agent_outlined, 'Assistant', assistantNameFrom(booking.assistant)),
                     if (assistantCodeFrom(booking.assistant) != null)
-                      _detailRow(Icons.badge_outlined, 'Assistant ID', assistantCodeFrom(booking.assistant)!),
+                      _detailRow(Icons.badge_outlined, 'ID', assistantCodeFrom(booking.assistant)!),
                   ],
                   const SizedBox(height: 12),
                   Container(

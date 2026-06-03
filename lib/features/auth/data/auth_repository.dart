@@ -199,7 +199,17 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
+    await _setAssistantOfflineBeforeClear();
     _socket.disconnect();
     await _storage.clear();
+  }
+
+  /// So customers do not see ghost "online" assistants after logout or uninstall.
+  Future<void> _setAssistantOfflineBeforeClear() async {
+    try {
+      final role = await _storage.getRole();
+      if (role != 'assistant') return;
+      await _api.post('/api/v1/assistants/online', data: {'isOnline': false});
+    } catch (_) {}
   }
 }

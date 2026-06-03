@@ -31,13 +31,16 @@ class ApiClient {
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         if (!await _connectivity.isOnline) {
-          return handler.reject(
-            DioException(
-              requestOptions: options,
-              type: DioExceptionType.connectionError,
-              message: NetworkErrors.noInternet,
-            ),
-          );
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+          if (!await _connectivity.isOnline) {
+            return handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.connectionError,
+                message: NetworkErrors.noInternet,
+              ),
+            );
+          }
         }
 
         final token = await _storage.getAccessToken();

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/providers.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../core/network/network_errors.dart';
+import '../../assistant/shared/assistant_availability_tracker.dart';
 import '../data/login_result.dart';
 
 class AuthState {
@@ -101,6 +102,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    ref.read(assistantAvailabilityTrackerProvider).stop();
     await ref.read(authRepositoryProvider).logout();
     state = const AuthState();
   }

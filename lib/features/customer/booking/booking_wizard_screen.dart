@@ -57,7 +57,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
     _nearbyRefreshTimer?.cancel();
     if (_step == 1 && _selectedLocation != null) {
       _nearbyRefreshTimer = Timer.periodic(const Duration(seconds: 18), (_) {
-        if (mounted && _step == 1) unawaited(_loadNearbyAssistants());
+        if (mounted && _step == 1) unawaited(_loadNearbyAssistants(silent: true));
       });
     }
   }
@@ -241,10 +241,13 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
     });
   }
 
-  Future<void> _loadNearbyAssistants() async {
+  Future<void> _loadNearbyAssistants({bool silent = false}) async {
     final loc = _selectedLocation;
     if (loc == null) return;
-    if (!_assistantsLoading) setState(() => _assistantsLoading = true);
+    final hadData = _nearbyAssistants.isNotEmpty;
+    if (!silent || !hadData) {
+      if (!_assistantsLoading) setState(() => _assistantsLoading = true);
+    }
     try {
       final repo = ref.read(bookingRepositoryProvider);
       final results = await Future.wait([
@@ -263,13 +266,13 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
     } on TimeoutException {
       if (!mounted) return;
       setState(() {
-        _nearbyAssistants = [];
+        if (!hadData) _nearbyAssistants = [];
         _assistantsLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _nearbyAssistants = [];
+        if (!hadData) _nearbyAssistants = [];
         _assistantsLoading = false;
       });
     }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/providers/providers.dart';
+import '../../core/network/connectivity_debounced_provider.dart';
 import '../../core/theme/app_colors.dart';
 
 class NoInternetBanner extends ConsumerWidget {
@@ -8,7 +8,7 @@ class NoInternetBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final online = ref.watch(isOnlineProvider);
+    final online = ref.watch(debouncedOnlineProvider);
     return online.when(
       data: (isOnline) {
         if (isOnline) return const SizedBox.shrink();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/legal/legal_links.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -132,7 +133,12 @@ class _AssistantProfileScreenState extends ConsumerState<AssistantProfileScreen>
               ),
             const SizedBox(height: 8),
             LiftooCard(
-              onTap: () => context.push('/legal'),
+              onTap: () async {
+                final ok = await openLegalIndex();
+                if (!ok && context.mounted) {
+                  showAppErrorSnackBar(context, Exception('Could not open liftoo.in. Check browser app.'));
+                }
+              },
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: const Row(
                 children: [

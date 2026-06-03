@@ -42,10 +42,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   void initState() {
     super.initState();
     _load();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
       final b = _booking;
-      if (b != null && _method == 'cash' && !b.isCashAwaitingCustomerConfirm) {
+      if (b != null && b.isPaymentPending && (_method == 'cash' || b.payment?['method'] == 'cash')) {
         _load();
       }
     });
@@ -59,6 +59,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         setState(() {
           _booking = b;
           _walletBalance = (w['balance'] as num?)?.toDouble() ?? 0;
+          if (b.payment?['method'] == 'cash') _method = 'cash';
         });
       }
     } catch (_) {}
@@ -233,11 +234,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         Text(b.venueName, style: const TextStyle(color: AppColors.textSecondary)),
                         const SizedBox(height: 4),
                         if (b?.assistant != null) ...[
-                          Text(assistantSummaryLine(b!.assistant), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          if (assistantCodeFrom(b.assistant) != null) ...[
-                            const SizedBox(height: 8),
-                            AssistantIdBadge(assistant: b.assistant, compact: true),
-                          ],
+                          Text(assistantNameFrom(b!.assistant), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          AssistantIdLine(assistant: b.assistant),
                         ],
                         const Divider(height: 24),
                         _feeRow('Service fee', b.serviceFee),
@@ -285,7 +284,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   _methodTile('wallet', 'Liftoo Wallet', 'Instant • Recommended'),
                   _methodTile('upi', 'UPI', 'Google Pay, PhonePe, Paytm'),
                   _methodTile('cash', 'Cash', 'Pay assistant in person'),
-                  if (_method == 'cash') ...[
+                  if (_method == 'cash' || b.payment?['method'] == 'cash') ...[
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -313,19 +312,20 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                             ),
                           ],
-                          if (b.isCashAwaitingCustomerConfirm) ...[
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _cashOtpCtrl,
-                              keyboardType: TextInputType.number,
-                              maxLength: 4,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              decoration: const InputDecoration(
-                                labelText: 'Payment OTP',
-                                hintText: '4 digits from assistant',
-                              ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _cashOtpCtrl,
+                            enabled: b.isCashAwaitingCustomerConfirm,
+                            keyboardType: TextInputType.number,
+                            maxLength: 4,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            decoration: InputDecoration(
+                              labelText: 'Payment OTP',
+                              hintText: b.isCashAwaitingCustomerConfirm
+                                  ? '4 digits from assistant'
+                                  : 'Available after assistant confirms cash',
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),

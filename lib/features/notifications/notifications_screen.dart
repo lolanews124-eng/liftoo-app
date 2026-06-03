@@ -193,6 +193,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           final n = _notifications[i] as Map<String, dynamic>;
                           final unread = n['readAt'] == null;
                           final id = n['id'] as String? ?? '$i';
+                          final type = n['type'] as String? ?? '';
+                          final isAdminBroadcast = type == 'admin_broadcast';
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Dismissible(
@@ -223,10 +225,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 12),
+                                    if (isAdminBroadcast)
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 10, top: 2),
+                                        child: Icon(Icons.campaign_outlined, color: AppColors.primary.withValues(alpha: 0.85), size: 22),
+                                      ),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
+                                          if (isAdminBroadcast)
+                                            const Padding(
+                                              padding: EdgeInsets.only(bottom: 2),
+                                              child: Text('From Liftoo', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                                            ),
                                           Text(
                                             n['title'] ?? '',
                                             style: TextStyle(fontWeight: unread ? FontWeight.w700 : FontWeight.w500),

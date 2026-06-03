@@ -11,7 +11,7 @@ class DevDataStore {
   DevDataStore._();
   static final instance = DevDataStore._();
 
-  static const enabled = bool.fromEnvironment('DEV_MOCK_AUTH', defaultValue: true);
+  static const enabled = bool.fromEnvironment('DEV_MOCK_AUTH', defaultValue: false);
 
   final _rng = Random();
   final Map<String, BookingModel> _bookings = {};

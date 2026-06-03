@@ -77,7 +77,7 @@ class LegalPoliciesScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.open_in_new, size: 20, color: AppColors.textSecondary),
+                    const Icon(Icons.open_in_browser, size: 20, color: AppColors.textSecondary),
                   ],
                 ),
               ),
