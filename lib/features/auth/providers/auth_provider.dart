@@ -86,6 +86,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> setRole(AppRole role) async {
     final user = await ref.read(authRepositoryProvider).setRole(role);
     state = AuthState(user: user, isLoading: false);
+    await PushNotificationService.instance.syncAfterLogin(ref);
   }
 
   Future<void> refreshUser() async {
@@ -104,6 +105,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           avatarUrl: avatarUrl,
         );
     state = AuthState(user: user, isLoading: false);
+    await PushNotificationService.instance.syncAfterLogin(ref);
     return user;
   }
 

@@ -41,13 +41,17 @@ class PushNotificationService {
         await messaging.requestPermission(alert: true, badge: true, sound: true);
       }
 
-      messaging.onTokenRefresh.listen((token) {
+      messaging.onTokenRefresh.listen((token) async {
         final c = _container;
-        if (c != null) _syncToken(c, token);
+        if (c != null && await _hasAuthSession(c)) {
+          await _syncToken(c, token);
+        }
       });
 
       final token = await messaging.getToken();
-      if (token != null) _syncToken(container, token);
+      if (token != null && await _hasAuthSession(container)) {
+        await _syncToken(container, token);
+      }
 
       _initialized = true;
     } catch (e) {
@@ -71,18 +75,25 @@ class PushNotificationService {
   Future<void> clearToken(Ref ref) async {
     try {
       final api = ref.read(apiClientProvider);
-      await api.put<Map<String, dynamic>>('/api/v1/users/me/fcm-token', data: {'token': null});
+      await api.put<Map<String, dynamic>>('/api/v1/users/me/fcm-token', data: {'token': ''});
     } catch (_) {}
     try {
       await FirebaseMessaging.instance.deleteToken();
     } catch (_) {}
   }
 
+  Future<bool> _hasAuthSession(ProviderContainer container) async {
+    final access = await container.read(tokenStorageProvider).getAccessToken();
+    return access != null && access.isNotEmpty;
+  }
+
   Future<void> _syncToken(ProviderContainer container, String token) async {
     if (token.isEmpty) return;
+    if (!await _hasAuthSession(container)) return;
     try {
       final api = container.read(apiClientProvider);
       await api.put<Map<String, dynamic>>('/api/v1/users/me/fcm-token', data: {'token': token});
+      if (kDebugMode) debugPrint('[FCM] token registered with server');
     } catch (e) {
       if (kDebugMode) debugPrint('[FCM] token sync failed: $e');
     }

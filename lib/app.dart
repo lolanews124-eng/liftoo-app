@@ -8,6 +8,7 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/realtime/in_app_notification_banner.dart';
 import 'core/realtime/notification_listener.dart';
+import 'core/push/fcm_foreground_listener.dart';
 import 'features/assistant/requests/assistant_request_listener.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'shared/widgets/no_internet_banner.dart';
@@ -45,7 +46,9 @@ class LiftooApp extends ConsumerWidget {
             ),
           );
           if (loggedIn) {
-            body = NotificationRealtimeListener(child: body);
+            body = FcmForegroundListener(
+              child: NotificationRealtimeListener(child: body),
+            );
           }
           if (isAssistant) {
             body = AssistantRequestListener(child: body);
