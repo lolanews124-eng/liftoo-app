@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/dev/dev_data_store.dart';
 import '../../../core/providers/providers.dart';
+import '../../../features/booking/booking_block_guard.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
 import 'quick_book_draft.dart';
@@ -57,7 +58,13 @@ class _ServiceSearchScreenState extends ConsumerState<ServiceSearchScreen> {
     }).toList();
   }
 
-  void _openService(ServiceCategoryModel c) {
+  Future<void> _openService(ServiceCategoryModel c) async {
+    final blocking = await ref.read(bookingRepositoryProvider).getCustomerBlockingBooking();
+    if (!mounted) return;
+    if (blocking != null) {
+      navigateToResolveBlockingBooking(context, blocking);
+      return;
+    }
     context.push(
       '/customer/booking',
       extra: QuickBookDraft(categorySlug: c.slug),

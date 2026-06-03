@@ -33,6 +33,7 @@ import '../../features/support/support_screen.dart';
 import '../../features/customer/addresses/addresses_screen.dart';
 import '../../features/chat/chat_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
+import '../../features/legal/legal_policies_screen.dart';
 import 'page_transitions.dart';
 import 'root_navigator.dart';
 import 'shell_scaffold.dart';
@@ -152,6 +153,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/support',
         pageBuilder: (_, state) => appSlidePage(key: state.pageKey, child: const SupportScreen()),
+      ),
+      GoRoute(
+        path: '/legal',
+        pageBuilder: (_, state) => appSlidePage(key: state.pageKey, child: const LegalPoliciesScreen()),
       ),
       GoRoute(
         path: '/customer/addresses',

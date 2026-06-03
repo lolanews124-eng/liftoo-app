@@ -67,12 +67,12 @@ const _slides = [
 ];
 
 class HomeHeroCarousel extends StatefulWidget {
-  final VoidCallback onBookTap;
+  final VoidCallback? onBookTap;
   final void Function(int index)? onSlideChanged;
 
   const HomeHeroCarousel({
     super.key,
-    required this.onBookTap,
+    this.onBookTap,
     this.onSlideChanged,
   });
 
@@ -160,12 +160,12 @@ class _HomeHeroCarouselState extends State<HomeHeroCarousel> {
 
 class _HeroSlideCard extends StatelessWidget {
   final HomeHeroSlide slide;
-  final VoidCallback onCta;
+  final VoidCallback? onCta;
   final double maxHeight;
 
   const _HeroSlideCard({
     required this.slide,
-    required this.onCta,
+    this.onCta,
     required this.maxHeight,
   });
 
@@ -256,16 +256,18 @@ class _HeroSlideCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    SizedBox(height: compact ? 6 : 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: _HeroCtaButton(
-                        label: slide.ctaLabel,
-                        color: slide.accentColor,
-                        compact: compact,
-                        onTap: onCta,
+                    if (onCta != null) ...[
+                      SizedBox(height: compact ? 6 : 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: _HeroCtaButton(
+                          label: slide.ctaLabel,
+                          color: slide.accentColor,
+                          compact: compact,
+                          onTap: onCta!,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

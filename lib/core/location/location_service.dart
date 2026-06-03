@@ -18,6 +18,41 @@ class LocationService {
     return (lat: loc.lat, lng: loc.lng);
   }
 
+  /// Real device coordinates when possible (no Mumbai fallback). For assistant online/location sync.
+  static Future<({double lat, double lng})?> tryCurrentCoords() async {
+    try {
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) return _lastKnownCoords();
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return _lastKnownCoords();
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      return (lat: pos.latitude, lng: pos.longitude);
+    } catch (_) {
+      return _lastKnownCoords();
+    }
+  }
+
+  static Future<({double lat, double lng})?> _lastKnownCoords() async {
+    try {
+      final pos = await Geolocator.getLastKnownPosition();
+      if (pos != null) return (lat: pos.latitude, lng: pos.longitude);
+    } catch (_) {}
+    return null;
+  }
+
   static Future<ServiceLocationModel> resolveCurrentLocation() async {
     try {
       final enabled = await Geolocator.isLocationServiceEnabled();

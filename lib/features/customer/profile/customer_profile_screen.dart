@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/layout/screen_safe_padding.dart';
-import '../../../core/legal/legal_links.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/user_model.dart';
@@ -89,18 +88,20 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          LiftooCard(
-            onTap: () => _switchRole(context, AppRole.assistant),
-            child: const Row(
-              children: [
-                Icon(Icons.swap_horiz, color: AppColors.primary),
-                SizedBox(width: 12),
-                Expanded(child: Text('Switch to Assistant Mode', style: TextStyle(fontWeight: FontWeight.w700))),
-                Icon(Icons.chevron_right),
-              ],
+          if (user?.hasAssistant == true) ...[
+            LiftooCard(
+              onTap: () => _switchRole(context, AppRole.assistant),
+              child: const Row(
+                children: [
+                  Icon(Icons.swap_horiz, color: AppColors.primary),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Switch to Assistant Mode', style: TextStyle(fontWeight: FontWeight.w700))),
+                  Icon(Icons.chevron_right),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
+          ],
           _tile(Icons.location_on_outlined, 'Saved addresses', () => context.push('/customer/addresses')),
           _tile(Icons.help_outline, 'Help & Support', () => context.push('/support')),
           _tile(Icons.account_balance_wallet_outlined, 'Wallet', () => context.go('/customer/wallet')),
@@ -109,7 +110,7 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
           _tile(Icons.headset_mic_outlined, 'Support', () => showSupportSheet(context)),
           _tile(Icons.help_outline, 'Help', () => showHelpSheet(context)),
           _tile(Icons.notifications_outlined, 'Notifications', () => context.push('/notifications')),
-          _tile(Icons.policy_outlined, 'Legal & policies', () => openLegalIndex()),
+          _tile(Icons.policy_outlined, 'Legal & policies', () => context.push('/legal')),
           const SizedBox(height: 24),
           TextButton.icon(
             onPressed: () async {

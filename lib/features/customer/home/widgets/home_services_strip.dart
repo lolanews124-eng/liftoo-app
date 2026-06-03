@@ -9,6 +9,7 @@ class HomeServicesStrip extends StatelessWidget {
   final IconData Function(String slug) iconFor;
   final void Function(ServiceCategoryModel category) onTap;
   final VoidCallback? onViewAll;
+  final bool bookingEnabled;
 
   const HomeServicesStrip({
     super.key,
@@ -18,6 +19,7 @@ class HomeServicesStrip extends StatelessWidget {
     required this.iconFor,
     required this.onTap,
     this.onViewAll,
+    this.bookingEnabled = true,
   });
 
   @override
@@ -34,7 +36,7 @@ class HomeServicesStrip extends StatelessWidget {
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.navy),
               ),
               const Spacer(),
-              if (onViewAll != null)
+              if (bookingEnabled && onViewAll != null)
                 GestureDetector(
                   onTap: onViewAll,
                   child: const Text(

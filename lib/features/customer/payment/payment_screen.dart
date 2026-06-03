@@ -14,6 +14,7 @@ import '../../../shared/models/booking_model.dart';
 import '../../../shared/models/review_models.dart';
 import '../../../shared/widgets/gradient_button.dart';
 import '../../../shared/widgets/keyboard_aware_scroll.dart';
+import '../../../shared/widgets/assistant_info.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
@@ -231,7 +232,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         const SizedBox(height: 4),
                         Text(b.venueName, style: const TextStyle(color: AppColors.textSecondary)),
                         const SizedBox(height: 4),
-                        Text('Assistant: $assistantName', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                        if (b?.assistant != null) ...[
+                          Text(assistantSummaryLine(b!.assistant), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          if (assistantCodeFrom(b.assistant) != null) ...[
+                            const SizedBox(height: 8),
+                            AssistantIdBadge(assistant: b.assistant, compact: true),
+                          ],
+                        ],
                         const Divider(height: 24),
                         _feeRow('Service fee', b.serviceFee),
                         _feeRow('Platform fee', b.platformFee),

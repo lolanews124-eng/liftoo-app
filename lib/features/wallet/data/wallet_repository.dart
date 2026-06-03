@@ -44,6 +44,21 @@ class WalletRepository {
         () => DevDataStore.instance.markNotificationRead(id),
       );
 
+  Future<void> markAllNotificationsRead() => _resolve(
+        () => _api.patch('/api/v1/notifications/read-all'),
+        () => DevDataStore.instance.markAllNotificationsRead(),
+      );
+
+  Future<void> deleteNotification(String id) => _resolve(
+        () => _api.delete('/api/v1/notifications/$id'),
+        () => DevDataStore.instance.deleteNotification(id),
+      );
+
+  Future<void> deleteAllNotifications() => _resolve(
+        () => _api.delete('/api/v1/notifications'),
+        () => DevDataStore.instance.deleteAllNotifications(),
+      );
+
   Future<Map<String, dynamic>> addWalletMoney(double amount, {String method = 'upi'}) => _resolve(
         () async {
           final data = await _api.post<Map<String, dynamic>>(

@@ -20,6 +20,9 @@ class RoleSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider).user;
+    final canBeAssistant = user?.hasAssistant == true;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -36,7 +39,9 @@ class RoleSelectionScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'You can switch roles later from your profile.',
+                canBeAssistant
+                    ? 'You can switch roles later from your profile.'
+                    : 'Book a verified shopping assistant for your trips.',
                 style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.9), fontSize: 14),
               ),
               const SizedBox(height: 28),
@@ -48,15 +53,17 @@ class RoleSelectionScreen extends ConsumerWidget {
                 isPrimary: true,
                 onTap: () => _select(context, ref, AppRole.customer),
               ).animate().fadeIn(delay: 80.ms).slideY(begin: 0.08, end: 0),
-              const SizedBox(height: 14),
-              _RoleCard(
-                title: 'Assistant',
-                subtitle: 'Earn by helping others shop',
-                icon: Icons.work_outline_rounded,
-                accent: AppColors.charcoal,
-                isPrimary: false,
-                onTap: () => _select(context, ref, AppRole.assistant),
-              ).animate().fadeIn(delay: 160.ms).slideY(begin: 0.08, end: 0),
+              if (canBeAssistant) ...[
+                const SizedBox(height: 14),
+                _RoleCard(
+                  title: 'Assistant',
+                  subtitle: 'Earn by helping others shop',
+                  icon: Icons.work_outline_rounded,
+                  accent: AppColors.charcoal,
+                  isPrimary: false,
+                  onTap: () => _select(context, ref, AppRole.assistant),
+                ).animate().fadeIn(delay: 160.ms).slideY(begin: 0.08, end: 0),
+              ],
             ],
           ),
         ),

@@ -47,6 +47,7 @@ class DevAuthMock {
         rating: 4.9,
         totalJobs: 48,
         profileCompletion: 85,
+        assistantCode: DevDataStore.devAssistantCode,
       ),
     );
   }

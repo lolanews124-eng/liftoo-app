@@ -7,8 +7,10 @@ import '../../../core/realtime/notification_listener.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/booking/booking_block_guard.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../../shared/models/service_location_model.dart';
+import '../../../shared/widgets/assistant_info.dart';
 import '../../../shared/widgets/skeleton_loader.dart';
 import 'home_sheets.dart';
 import 'quick_book_draft.dart';
@@ -26,7 +28,7 @@ class CustomerHomeScreen extends ConsumerStatefulWidget {
 
 class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   List<ServiceCategoryModel> _categories = [];
-  BookingModel? _activeBooking;
+  BookingModel? _blockingBooking;
   int _referralReward = 100;
   bool _loading = true;
 
@@ -87,23 +89,24 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       final walletRepo = ref.read(walletRepositoryProvider);
       final results = await Future.wait([
         bookingRepo.getCategories(),
-        bookingRepo.getBookings(status: 'upcoming'),
+        bookingRepo.getCustomerBlockingBooking(),
         walletRepo.getNotifications(),
         walletRepo.getReferrals(),
       ]);
       final cats = results[0] as List<ServiceCategoryModel>;
-      final bookings = results[1] as List<BookingModel>;
+      final blocking = results[1] as BookingModel?;
       final notifs = results[2] as List<dynamic>;
       final referralInfo = results[3] as Map<String, dynamic>;
       final reward = (referralInfo['rewardPerReferral'] as num?)?.toInt() ?? 100;
       if (mounted) {
+        ref.invalidate(customerBlockingBookingProvider);
         setState(() {
           _categories = cats;
           if (cats.isNotEmpty && _categorySlug == null) {
             _categorySlug = cats.first.slug;
             _service = _shortName(cats.first.name);
           }
-          _activeBooking = bookings.isNotEmpty ? bookings.first : null;
+          _blockingBooking = blocking;
           _referralReward = reward;
           ref.read(unreadNotificationCountProvider.notifier).state =
               notifs.where((n) => (n as Map)['readAt'] == null).length;
@@ -113,9 +116,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     } catch (_) {
       if (mounted) {
         DevDataStore.instance.ensureSeeded();
+        ref.invalidate(customerBlockingBookingProvider);
         setState(() {
           _categories = DevDataStore.categories;
-          _activeBooking = DevDataStore.instance.getActiveBooking();
+          _blockingBooking = DevDataStore.instance.getCustomerBlockingBooking();
           _referralReward =
               (DevDataStore.instance.getReferrals()['rewardPerReferral'] as num?)?.toInt() ?? 100;
           ref.read(unreadNotificationCountProvider.notifier).state =
@@ -136,8 +140,11 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   }
 
   void _openBooking([QuickBookDraft? draft]) {
+    if (_blockingBooking != null) return;
     context.push('/customer/booking', extra: draft ?? _draft);
   }
+
+  bool get _canBook => _blockingBooking == null;
 
   void _selectService(ServiceCategoryModel c, {bool openBooking = true}) {
     setState(() {
@@ -175,14 +182,15 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: [
                           const SizedBox(height: 4),
-                          HomeHeroCarousel(onBookTap: () => _openBooking()),
-                          _buildQuickBookSection(),
+                          HomeHeroCarousel(
+                            onBookTap: _canBook ? () => _openBooking() : null,
+                          ),
+                          if (_canBook) _buildQuickBookSection() else if (_blockingBooking != null) _buildBlockingBooking(_blockingBooking!),
                           _buildCategoriesSection(),
                           HomeReferralBanner(
                             rewardAmount: _referralReward,
                             onTap: () => context.push('/referral'),
                           ),
-                          if (_activeBooking != null) _buildActiveBooking(_activeBooking!),
                           const SizedBox(height: 100),
                         ],
                       ),
@@ -211,7 +219,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
               ],
             ),
           ),
-          _iconBtn(Icons.search, onTap: () => context.push('/customer/search')),
+          _iconBtn(
+            Icons.search,
+            onTap: _canBook ? () => context.push('/customer/search') : null,
+          ),
           const SizedBox(width: 8),
           _iconBtn(
             Icons.notifications_outlined,
@@ -302,18 +313,22 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       selectedSlug: _categorySlug,
       shortName: _shortName,
       iconFor: _iconFor,
-      onTap: _selectService,
-      onViewAll: () => _openBooking(),
+      bookingEnabled: _canBook,
+      onTap: (c) => _selectService(c, openBooking: _canBook),
+      onViewAll: _canBook ? () => _openBooking() : null,
     );
   }
 
-  Widget _buildActiveBooking(BookingModel b) {
-    final statusLabel = switch (b.status) {
-      'arriving' || 'assigned' => 'On the way',
-      'searching' => 'Finding assistant',
-      'started' => 'In progress',
-      _ => b.status,
-    };
+  Widget _buildBlockingBooking(BookingModel b) {
+    final statusLabel = b.isPaymentPending
+        ? 'Payment due'
+        : switch (b.status) {
+            'arriving' || 'assigned' => 'On the way',
+            'searching' => 'Finding assistant',
+            'started' => 'In progress',
+            'pending' => 'Draft',
+            _ => b.status,
+          };
     final assistantName = b.assistant?['name'] ?? 'Assistant';
     final profile = b.assistant?['assistantProfile'] as Map<String, dynamic>?;
     final rating = (profile?['rating'] as num?)?.toDouble() ?? 4.9;
@@ -341,7 +356,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle),
                 ),
                 const SizedBox(width: 8),
-                const Text('Active Booking', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                Text(
+                  b.isPaymentPending ? 'Complete payment' : 'Active booking',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                ),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -350,61 +368,59 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Text('📍 ${b.venueName}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            if (!b.isPaymentPending && b.assistant != null) ...[
+              const SizedBox(height: 10),
+              AssistantIdBadge(assistant: b.assistant, compact: true),
+              const SizedBox(height: 8),
+              Text(
+                '$assistantName • ★ ${rating.toStringAsFixed(1)} • ${b.category?.name ?? "Service"}',
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ] else if (b.isPaymentPending) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Pay ₹${b.totalAmount.toStringAsFixed(0)} to finish this booking. New bookings unlock after payment.',
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.35),
+              ),
+            ] else ...[
+              const SizedBox(height: 10),
+              Text(
+                'Finish this booking before starting another.',
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.35),
+              ),
+            ],
             const SizedBox(height: 14),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                  child: Text(assistantName[0], style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(assistantName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                      Text(
-                        b.assistant != null
-                            ? '★ ${rating.toStringAsFixed(1)} • $totalJobs jobs • ${b.category?.name ?? "Service"}'
-                            : 'Matching best assistant...',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  child: FilledButton.icon(
+                    onPressed: () => navigateToResolveBlockingBooking(context, b),
+                    icon: Icon(b.isPaymentPending ? Icons.payment : Icons.my_location, size: 18),
+                    label: Text(b.isPaymentPending ? 'Pay now' : 'View booking'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                if (!b.isPaymentPending && b.assistant != null) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => callAssistant(assistantPhone),
+                      icon: const Icon(Icons.phone, size: 18),
+                      label: const Text('Call'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.charcoal,
+                        side: const BorderSide(color: AppColors.charcoal),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      const SizedBox(height: 2),
-                      Text('📍 ${b.venueName}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => context.push('/customer/booking/${b.id}'),
-                    icon: const Icon(Icons.my_location, size: 18),
-                    label: const Text('Track Live'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.charcoal,
-                      side: const BorderSide(color: AppColors.charcoal),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: b.assistant != null ? () => callAssistant(assistantPhone) : null,
-                    icon: const Icon(Icons.phone, size: 18),
-                    label: const Text('Call'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.charcoal,
-                      side: const BorderSide(color: AppColors.charcoal),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
+                ],
               ],
             ),
           ],

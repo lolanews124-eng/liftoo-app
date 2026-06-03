@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/legal/legal_links.dart';
+import '../../../core/network/error_snackbar.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/assistant_verification_model.dart';
@@ -51,9 +51,16 @@ class _AssistantProfileScreenState extends ConsumerState<AssistantProfileScreen>
   Future<void> _toggleOnline(bool targetOnline) async {
     final ok = await confirmAssistantOnlineChange(context, targetOnline);
     if (!ok || !mounted) return;
-    await setAssistantOnline(ref, targetOnline);
-    if (targetOnline && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are now online')));
+    try {
+      await setAssistantOnline(ref, targetOnline);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(targetOnline ? 'You are now online' : 'You are now offline'),
+        ),
+      );
+    } catch (e) {
+      if (mounted) showAppErrorSnackBar(context, e);
     }
   }
 
@@ -125,14 +132,14 @@ class _AssistantProfileScreenState extends ConsumerState<AssistantProfileScreen>
               ),
             const SizedBox(height: 8),
             LiftooCard(
-              onTap: () => openLegalIndex(),
+              onTap: () => context.push('/legal'),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: const Row(
                 children: [
                   Icon(Icons.policy_outlined, color: AppColors.primary),
                   SizedBox(width: 12),
                   Expanded(child: Text('Legal & policies', style: TextStyle(fontWeight: FontWeight.w600))),
-                  Icon(Icons.open_in_new, size: 18, color: AppColors.textSecondary),
+                  Icon(Icons.chevron_right, color: AppColors.textSecondary),
                 ],
               ),
             ),

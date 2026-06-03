@@ -24,7 +24,8 @@ class AssistantJobLocationTracker {
 
   Future<void> _ping(WidgetRef ref) async {
     try {
-      final coords = await LocationService.currentOrDefault();
+      final coords = await LocationService.tryCurrentCoords();
+      if (coords == null) return;
       await ref.read(bookingRepositoryProvider).updateAssistantLocation(
             lat: coords.lat,
             lng: coords.lng,

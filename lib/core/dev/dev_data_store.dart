@@ -38,7 +38,12 @@ class DevDataStore {
     },
   };
 
-  void setAssistantOnline(bool online) => assistantOnline = online;
+  void setAssistantOnline(bool online, {double? lat, double? lng}) {
+    assistantOnline = online;
+    if (online && lat != null && lng != null) {
+      updateAssistantLocation(lat, lng);
+    }
+  }
 
   Map<String, dynamic>? getUserProfile(String userId) => _userProfiles[userId];
 
@@ -64,10 +69,20 @@ class DevDataStore {
 
   static const assistantId = 'asst-dev-1';
 
-  static Map<String, dynamic> assistantProfile({double rating = 4.9, int totalJobs = 48, int reviewCount = 42}) => {
+  /// Matches backend `generateAssistantCode()` format (physical card / admin "Code").
+  static const devAssistantCode = 'Liftoo-2026-0001';
+
+  static Map<String, dynamic> assistantProfile({
+    double rating = 4.9,
+    int totalJobs = 48,
+    int reviewCount = 42,
+    String? assistantCode,
+  }) =>
+      {
         'rating': rating,
         'totalJobs': totalJobs,
         'reviewCount': reviewCount,
+        'assistantCode': assistantCode ?? devAssistantCode,
       };
 
   static Map<String, dynamic> assistantSnapshot({double rating = 4.9, int totalJobs = 48, int reviewCount = 42}) => {
@@ -284,10 +299,38 @@ class DevDataStore {
     return all.where((b) => b.status == status).map(_hydrate).toList();
   }
 
-  BookingModel? getActiveBooking() {
-    final upcoming = getBookings(status: 'upcoming');
-    return upcoming.isEmpty ? null : upcoming.first;
+  BookingModel? getCustomerBlockingBooking() {
+    ensureSeeded();
+    final sorted = _bookings.values.toList()..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+    for (final b in sorted) {
+      if (_blocksNewCustomerBooking(b)) return _hydrate(b);
+    }
+    return null;
   }
+
+  BookingModel? getAssistantBlockingJob() {
+    ensureSeeded();
+    final sorted = _bookings.values.toList()..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+    for (final b in sorted) {
+      if (b.assistant == null) continue;
+      if (_blocksAssistantJob(b)) return _hydrate(b);
+    }
+    return null;
+  }
+
+  bool _blocksNewCustomerBooking(BookingModel b) {
+    if (b.status == 'cancelled') return false;
+    if (b.status != 'completed') return true;
+    return !b.isPaid;
+  }
+
+  bool _blocksAssistantJob(BookingModel b) {
+    if (['assigned', 'arriving', 'started'].contains(b.status)) return true;
+    if (b.status == 'completed') return !b.isPaid;
+    return false;
+  }
+
+  BookingModel? getActiveBooking() => getAssistantBlockingJob();
 
   BookingModel getBooking(String id) {
     ensureSeeded();
@@ -302,11 +345,19 @@ class DevDataStore {
     Map<String, dynamic>? assistant = b.assistant;
     if (assistant != null) {
       assistant = Map<String, dynamic>.from(assistant);
-      assistant['assistantProfile'] = assistantProfile(
+      final existingProfile = assistant['assistantProfile'] as Map<String, dynamic>?;
+      final profile = assistantProfile(
         rating: _assistantRating,
         totalJobs: _assistantTotalJobs,
         reviewCount: _assistantReviewCount,
       );
+      assistant['assistantProfile'] = {
+        ...profile,
+        if (existingProfile != null) ...existingProfile,
+        'assistantCode': (existingProfile?['assistantCode'] as String?)?.trim().isNotEmpty == true
+            ? existingProfile!['assistantCode']
+            : profile['assistantCode'],
+      };
     }
     var result = _copy(b, assistant: assistant, rating: rating, appReview: appReview);
     if (b.status == 'searching') {
@@ -340,7 +391,7 @@ class DevDataStore {
           'distanceKm': '1.1',
           'rating': 4.9,
           'totalJobs': 48,
-          'assistantCode': 'LF-1001',
+          'assistantCode': devAssistantCode,
           'isOnline': true,
         },
         {
@@ -351,7 +402,7 @@ class DevDataStore {
           'distanceKm': '1.4',
           'rating': 4.8,
           'totalJobs': 32,
-          'assistantCode': 'LF-1002',
+          'assistantCode': 'Liftoo-2026-0002',
           'isOnline': true,
         },
         {
@@ -362,7 +413,7 @@ class DevDataStore {
           'distanceKm': '2.0',
           'rating': 4.7,
           'totalJobs': 21,
-          'assistantCode': 'LF-1003',
+          'assistantCode': 'Liftoo-2026-0003',
           'isOnline': true,
         },
       ];
@@ -443,6 +494,9 @@ class DevDataStore {
 
   BookingModel createBooking(Map<String, dynamic> body) {
     ensureSeeded();
+    if (getCustomerBlockingBooking() != null) {
+      throw Exception('Finish your current booking and complete payment before booking again.');
+    }
     final catId = body['categoryId'] as String;
     final cat = categoryById(catId) ?? categories.first;
     final duration = body['durationMin'] as int;
@@ -473,6 +527,12 @@ class DevDataStore {
   }
 
   BookingModel confirmBooking(String id) {
+    for (final b in _bookings.values) {
+      if (b.id == id) continue;
+      if (_blocksNewCustomerBooking(b)) {
+        throw Exception('Finish your current booking and complete payment before booking again.');
+      }
+    }
     final current = getBooking(id);
     final updated = _copy(current, status: 'searching', history: [
       ...current.statusHistory,
@@ -654,6 +714,22 @@ class DevDataStore {
     if (i >= 0) {
       _notifications[i] = {..._notifications[i], 'readAt': DateTime.now().toIso8601String()};
     }
+  }
+
+  void markAllNotificationsRead() {
+    for (var i = 0; i < _notifications.length; i++) {
+      if (_notifications[i]['readAt'] == null) {
+        _notifications[i] = {..._notifications[i], 'readAt': DateTime.now().toIso8601String()};
+      }
+    }
+  }
+
+  void deleteNotification(String id) {
+    _notifications.removeWhere((n) => n['id'] == id);
+  }
+
+  void deleteAllNotifications() {
+    _notifications.clear();
   }
 
   void _setStatus(String id, String status, {bool assignAssistant = false}) {

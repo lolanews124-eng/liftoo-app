@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/providers/providers.dart';
+import '../shared/assistant_availability_tracker.dart';
 import 'assistant_booking_request_flow.dart';
 
 /// Incoming booking requests via socket + polling; shows Accept/Reject popup.
@@ -28,7 +29,7 @@ class _AssistantRequestListenerState extends ConsumerState<AssistantRequestListe
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _attachSocket();
-      _syncPolling();
+      _syncPollingAndLocation();
     });
   }
 
@@ -42,7 +43,23 @@ class _AssistantRequestListenerState extends ConsumerState<AssistantRequestListe
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _pollOnce();
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_onAppResumed());
+    }
+  }
+
+  Future<void> _onAppResumed() async {
+    if (!assistantCanReceiveRequests(ref)) return;
+    await ref.read(assistantAvailabilityTrackerProvider).refreshNow(ref);
+    await _ensureSocketConnected();
+    await _pollOnce();
+  }
+
+  Future<void> _ensureSocketConnected() async {
+    final socket = ref.read(socketServiceProvider);
+    if (socket.isConnected) return;
+    final token = await ref.read(tokenStorageProvider).getAccessToken();
+    if (token != null) socket.connect(token);
   }
 
   void _attachSocket() {
@@ -52,11 +69,19 @@ class _AssistantRequestListenerState extends ConsumerState<AssistantRequestListe
     });
   }
 
-  void _syncPolling() {
+  void _syncPollingAndLocation() {
     _pollTimer?.cancel();
-    if (!assistantCanReceiveRequests(ref)) return;
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _pollOnce());
-    _pollOnce();
+    final canReceive = assistantCanReceiveRequests(ref);
+    final tracker = ref.read(assistantAvailabilityTrackerProvider);
+
+    if (canReceive) {
+      if (!tracker.isRunning) tracker.start(ref);
+      _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _pollOnce());
+      unawaited(_pollOnce());
+      unawaited(_ensureSocketConnected());
+    } else {
+      tracker.stop();
+    }
   }
 
   BookingModel? _parseBooking(dynamic data) {
@@ -127,10 +152,11 @@ class _AssistantRequestListenerState extends ConsumerState<AssistantRequestListe
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authProvider, (prev, next) {
+      final role = next.user?.activeRole;
       final wasOnline = prev?.user?.isOnline ?? false;
       final isOnline = next.user?.isOnline ?? false;
-      if (next.user?.activeRole == 'assistant' && wasOnline != isOnline) {
-        _syncPolling();
+      if (role == 'assistant' && (wasOnline != isOnline || prev?.user?.activeRole != role)) {
+        _syncPollingAndLocation();
       }
     });
     return widget.child;

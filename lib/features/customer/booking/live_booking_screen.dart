@@ -11,6 +11,7 @@ import '../../booking/shared/booking_realtime.dart';
 import '../booking/booking_flow.dart';
 import '../home/home_sheets.dart';
 import '../../../shared/widgets/live_tracking_map.dart';
+import '../../../shared/widgets/assistant_info.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/gradient_button.dart';
 import 'cancel_booking_dialog.dart';
@@ -318,7 +319,9 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(b.assistant!['name'] ?? 'Assistant', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                Text(assistantNameFrom(b.assistant), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                const SizedBox(height: 8),
+                AssistantIdBadge(assistant: b.assistant, compact: true),
                 const SizedBox(height: 6),
                 Row(
                   children: [

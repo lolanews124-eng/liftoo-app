@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/error_snackbar.dart';
 import '../../core/providers/providers.dart';
+import '../../features/booking/booking_block_guard.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/models/user_model.dart';
 import 'providers/auth_provider.dart';
@@ -18,16 +19,16 @@ Future<String?> roleSwitchBlockReason(WidgetRef ref, AppRole target) async {
     try {
       final job = await ref.read(bookingRepositoryProvider).getActiveJob();
       if (job != null) {
-        return 'You have an active job in progress. Complete it before switching to customer mode.';
+        return 'Complete your active job and payment before switching to customer mode.';
       }
     } catch (_) {}
   }
 
   if (target == AppRole.assistant) {
     try {
-      final upcoming = await ref.read(bookingRepositoryProvider).getBookings(status: 'upcoming');
-      if (upcoming.isNotEmpty) {
-        return 'You have an active booking. Complete or cancel it before switching to assistant mode.';
+      final blocking = await ref.read(bookingRepositoryProvider).getCustomerBlockingBooking();
+      if (blocking != null) {
+        return 'Finish your booking and payment before switching to assistant mode.';
       }
     } catch (_) {}
   }

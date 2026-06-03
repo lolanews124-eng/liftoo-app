@@ -83,6 +83,19 @@ class BookingRepository {
         () => DevDataStore.instance.getBookings(status: 'searching'),
       );
 
+  Future<BookingModel?> getCustomerBlockingBooking() => _resolve(
+        () async {
+          try {
+            final data = await _api.get<Map<String, dynamic>?>('/api/v1/bookings/blocking');
+            if (data == null) return null;
+            return BookingModel.fromJson(data);
+          } catch (_) {
+            return null;
+          }
+        },
+        () => DevDataStore.instance.getCustomerBlockingBooking(),
+      );
+
   Future<BookingModel?> getActiveJob() => _resolve(
         () async {
           try {
@@ -92,7 +105,7 @@ class BookingRepository {
             return null;
           }
         },
-        () => DevDataStore.instance.getActiveBooking(),
+        () => DevDataStore.instance.getAssistantBlockingJob(),
       );
 
   Future<BookingModel> getBooking(String id) => _resolve(
@@ -198,7 +211,7 @@ class BookingRepository {
           if (lat != null) 'lat': lat,
           if (lng != null) 'lng': lng,
         }),
-        () => DevDataStore.instance.setAssistantOnline(isOnline),
+        () => DevDataStore.instance.setAssistantOnline(isOnline, lat: lat, lng: lng),
       );
 
   Future<PaymentResultModel> payBooking(String id, String method) => _resolve(

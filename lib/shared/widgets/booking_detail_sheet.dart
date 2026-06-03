@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../models/booking_model.dart';
+import 'assistant_info.dart';
 import 'status_timeline.dart';
 
 /// Human-readable booking status for UI.
@@ -100,8 +101,11 @@ Future<void> showBookingDetailSheet(
                   _detailRow(Icons.location_on_outlined, 'Location', '${booking.lat.toStringAsFixed(5)}, ${booking.lng.toStringAsFixed(5)}'),
                   if (isAssistantView && booking.customer != null)
                     _detailRow(Icons.person_outline, 'Customer', booking.customer!['name'] as String? ?? 'Customer'),
-                  if (!isAssistantView && booking.assistant != null)
-                    _detailRow(Icons.support_agent_outlined, 'Assistant', booking.assistant!['name'] as String? ?? 'Assistant'),
+                  if (!isAssistantView && booking.assistant != null) ...[
+                    _detailRow(Icons.support_agent_outlined, 'Assistant', assistantSummaryLine(booking.assistant)),
+                    if (assistantCodeFrom(booking.assistant) != null)
+                      _detailRow(Icons.badge_outlined, 'Assistant ID', assistantCodeFrom(booking.assistant)!),
+                  ],
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,

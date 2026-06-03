@@ -63,8 +63,12 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
     final ok = await confirmAssistantOnlineChange(context, targetOnline);
     if (!ok || !mounted) return;
     HapticFeedback.lightImpact();
-    await setAssistantOnline(ref, targetOnline);
-    if (targetOnline) await _load(silent: true);
+    try {
+      await setAssistantOnline(ref, targetOnline);
+      if (targetOnline) await _load(silent: true);
+    } catch (e) {
+      if (mounted) showAppErrorSnackBar(context, e);
+    }
   }
 
   Future<void> _openRequest(BookingModel booking) async {

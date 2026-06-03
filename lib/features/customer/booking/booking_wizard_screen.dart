@@ -11,6 +11,7 @@ import '../../../core/network/error_snackbar.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../features/booking/booking_block_guard.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../../shared/models/nearby_assistant_model.dart';
 import '../../../shared/models/service_location_model.dart';
@@ -32,6 +33,7 @@ class BookingWizardScreen extends ConsumerStatefulWidget {
 class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
   int _step = 0;
   Timer? _assistantsLoadDebounce;
+  Timer? _nearbyRefreshTimer;
   List<ServiceCategoryModel> _categories = [];
   ServiceCategoryModel? _selectedCategory;
   int _duration = 60;
@@ -47,15 +49,33 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
   @override
   void dispose() {
     _assistantsLoadDebounce?.cancel();
+    _nearbyRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  void _syncNearbyAutoRefresh() {
+    _nearbyRefreshTimer?.cancel();
+    if (_step == 1 && _selectedLocation != null) {
+      _nearbyRefreshTimer = Timer.periodic(const Duration(seconds: 18), (_) {
+        if (mounted && _step == 1) unawaited(_loadNearbyAssistants());
+      });
+    }
   }
 
   @override
   void initState() {
     super.initState();
     if (widget.draft?.durationMin != null) _duration = widget.draft!.durationMin!;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _guardBlockingBooking());
     _loadCategories();
     _initLocation();
+  }
+
+  Future<void> _guardBlockingBooking() async {
+    final blocking = await ref.read(bookingRepositoryProvider).getCustomerBlockingBooking();
+    if (!mounted || blocking == null) return;
+    navigateToResolveBlockingBooking(context, blocking);
+    if (mounted) context.pop();
   }
 
   Future<void> _initLocation() async {
@@ -239,6 +259,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
         _matchRadiusKm = (summary['matchRadiusKm'] as num?)?.toInt() ?? 10;
         _assistantsLoading = false;
       });
+      _syncNearbyAutoRefresh();
     } on TimeoutException {
       if (!mounted) return;
       setState(() {
@@ -283,6 +304,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
       final enteringMap = _step == 0;
       setState(() => _step++);
       if (enteringMap) _scheduleLoadNearbyAssistants();
+      _syncNearbyAutoRefresh();
     } else {
       _confirm();
     }
@@ -290,6 +312,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
 
   void _previousStep() {
     setState(() => _step--);
+    _syncNearbyAutoRefresh();
   }
 
   void _handleBack() {
@@ -638,7 +661,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
                 ),
               ),
             Positioned(
-              top: 12,
+              top: 58,
               left: 12,
               right: 12,
               child: _MapOnlineBadge(

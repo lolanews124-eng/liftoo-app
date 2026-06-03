@@ -150,6 +150,9 @@ class BookingModel {
 
   bool get isActive => !['completed', 'cancelled'].contains(status);
 
+  /// Blocks starting another booking until service is done and payment is completed.
+  bool get blocksNewBooking => isActive || isPaymentPending;
+
   DateTime? get serviceStartedAt {
     for (final h in statusHistory.reversed) {
       if (h.status == 'started') return h.createdAt;

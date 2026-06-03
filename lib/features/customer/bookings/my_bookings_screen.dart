@@ -8,6 +8,7 @@ import '../../../core/network/network_errors.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/assistant_info.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/network_error_state.dart';
 import '../../../shared/widgets/booking_detail_sheet.dart';
@@ -191,7 +192,7 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen> with Single
                         ),
                         if (b.assistant != null) ...[
                           const SizedBox(height: 8),
-                          Text('Assistant: ${b.assistant!['name']}', style: const TextStyle(fontSize: 13)),
+                          Text(assistantSummaryLine(b.assistant), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                         ],
                         if (status == 'upcoming' && b.isActive && b.status != 'started') ...[
                           const SizedBox(height: 12),
