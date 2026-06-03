@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/providers.dart';
 import '../realtime/in_app_notification_banner.dart';
+import '../realtime/notification_listener.dart';
 
 /// Shows admin / system pushes when the app is open (background still uses system tray).
 class FcmForegroundListener extends ConsumerStatefulWidget {
