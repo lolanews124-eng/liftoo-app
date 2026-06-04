@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/realtime/notification_listener.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/empty_state.dart';
-import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/network_error_state.dart';
+import 'notification_detail_sheet.dart';
+import 'notification_ui.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -84,13 +84,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete all notifications?'),
+        title: const Text('Clear all notifications?'),
         content: const Text('This cannot be undone.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete all', style: TextStyle(color: AppColors.error)),
+            child: const Text('Clear all', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -133,21 +133,27 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
   }
 
-  Future<void> _open(Map<String, dynamic> n) async {
+  Future<void> _openNotification(Map<String, dynamic> n) async {
     final id = n['id'] as String?;
     if (id != null && n['readAt'] == null) {
-      await ref.read(walletRepositoryProvider).markNotificationRead(id);
+      try {
+        await ref.read(walletRepositoryProvider).markNotificationRead(id);
+        if (mounted) {
+          setState(() {
+            final i = _notifications.indexWhere((x) => (x as Map)['id'] == id);
+            if (i >= 0) {
+              _notifications[i] = {
+                ...(_notifications[i] as Map<String, dynamic>),
+                'readAt': DateTime.now().toIso8601String(),
+              };
+            }
+          });
+          _syncUnreadBadge();
+        }
+      } catch (_) {}
     }
     if (!mounted) return;
-    final title = (n['title'] as String? ?? '').toLowerCase();
-    if (title.contains('booking') || title.contains('assistant') || title.contains('way')) {
-      context.go('/customer/bookings');
-    } else if (title.contains('refer')) {
-      context.push('/referral');
-    } else if (title.contains('payment')) {
-      context.go('/customer/wallet');
-    }
-    _load();
+    await showNotificationDetailSheet(context, notification: n);
   }
 
   bool get _hasUnread => _notifications.any((n) => (n as Map)['readAt'] == null);
@@ -157,18 +163,21 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final hasItems = _notifications.isNotEmpty;
 
     return Scaffold(
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Notifications'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         actions: [
           if (hasItems && _hasUnread)
             TextButton(
               onPressed: _actionLoading ? null : _markAllRead,
-              child: const Text('Mark all read', style: TextStyle(fontWeight: FontWeight.w700)),
+              child: const Text('Mark read', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           if (hasItems)
             IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Delete all',
+              icon: const Icon(Icons.delete_sweep_outlined),
+              tooltip: 'Clear all',
               onPressed: _actionLoading ? null : _deleteAll,
             ),
         ],
@@ -186,77 +195,113 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   : RefreshIndicator(
                       onRefresh: _load,
                       color: AppColors.primary,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(20),
+                      child: ListView.separated(
+                        padding: EdgeInsets.zero,
                         itemCount: _notifications.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1, indent: 72),
                         itemBuilder: (context, i) {
                           final n = _notifications[i] as Map<String, dynamic>;
                           final unread = n['readAt'] == null;
                           final id = n['id'] as String? ?? '$i';
-                          final type = n['type'] as String? ?? '';
-                          final isAdminBroadcast = type == 'admin_broadcast';
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Dismissible(
-                              key: ValueKey(id),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 20),
-                                decoration: BoxDecoration(
-                                  color: AppColors.error.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Icon(Icons.delete_outline, color: AppColors.error),
-                              ),
-                              onDismissed: (_) => _deleteOne(id),
-                              child: LiftooCard(
-                                onTap: () => _open(n),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      margin: const EdgeInsets.only(top: 6),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: unread ? AppColors.primary : Colors.transparent,
+                          final type = n['type'] as String?;
+                          final title = n['title'] as String? ?? '';
+                          final body = n['body'] as String? ?? '';
+                          final time = formatNotificationTime(n['createdAt'] as String?);
+
+                          return Dismissible(
+                            key: ValueKey(id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              color: AppColors.error.withValues(alpha: 0.08),
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 24),
+                              child: const Icon(Icons.delete_outline, color: AppColors.error),
+                            ),
+                            onDismissed: (_) => _deleteOne(id),
+                            child: Material(
+                              color: unread ? AppColors.primaryLight.withValues(alpha: 0.35) : Colors.white,
+                              child: InkWell(
+                                onTap: () => _openNotification(n),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: notificationIconColor(type).withValues(alpha: 0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          notificationIcon(type),
+                                          color: notificationIconColor(type),
+                                          size: 24,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    if (isAdminBroadcast)
-                                      Padding(
-                                        padding: const EdgeInsets.only(right: 10, top: 2),
-                                        child: Icon(Icons.campaign_outlined, color: AppColors.primary.withValues(alpha: 0.85), size: 22),
-                                      ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          if (isAdminBroadcast)
-                                            const Padding(
-                                              padding: EdgeInsets.only(bottom: 2),
-                                              child: Text('From Liftoo', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    title,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 15,
+                                                      fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
+                                                      color: AppColors.textPrimary,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (time.isNotEmpty) ...[
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    time,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: unread ? AppColors.primary : AppColors.textSecondary,
+                                                      fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
-                                          Text(
-                                            n['title'] ?? '',
-                                            style: TextStyle(fontWeight: unread ? FontWeight.w700 : FontWeight.w500),
-                                          ),
-                                          Text(
-                                            n['body'] ?? '',
-                                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                                          ),
-                                        ],
+                                            if (body.isNotEmpty) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                body,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  height: 1.35,
+                                                  color: AppColors.textSecondary,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close, size: 20, color: AppColors.textSecondary),
-                                      onPressed: () => _deleteOne(id),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                    ),
-                                  ],
+                                      if (unread) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          width: 9,
+                                          height: 9,
+                                          margin: const EdgeInsets.only(top: 6),
+                                          decoration: const BoxDecoration(
+                                            color: AppColors.primary,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

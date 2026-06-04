@@ -32,6 +32,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _init() async {
     try {
+      final token = await ref.read(tokenStorageProvider).getAccessToken();
+      if (token == null) {
+        state = const AuthState(isLoading: false);
+        return;
+      }
       final user = await ref
           .read(authRepositoryProvider)
           .getCurrentUser()

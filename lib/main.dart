@@ -94,7 +94,6 @@ Future<void> main() async {
   runApp(UncontrolledProviderScope(container: container, child: const LiftooApp()));
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    FlutterNativeSplash.remove();
     unawaited(_deferredStartup(container));
   });
 }
