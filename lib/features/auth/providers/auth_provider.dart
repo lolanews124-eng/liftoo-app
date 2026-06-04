@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/providers.dart';
 import '../../../shared/models/user_model.dart';
@@ -30,11 +32,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _init() async {
     try {
-      final user = await ref.read(authRepositoryProvider).getCurrentUser();
+      final user = await ref
+          .read(authRepositoryProvider)
+          .getCurrentUser()
+          .timeout(const Duration(seconds: 6));
       state = AuthState(user: user, isLoading: false);
       if (user != null) {
-        await PushNotificationService.instance.syncAfterLogin(ref);
+        unawaited(PushNotificationService.instance.syncAfterLogin(ref));
       }
+    } on TimeoutException {
+      state = const AuthState(isLoading: false);
     } catch (_) {
       state = const AuthState(isLoading: false);
     }

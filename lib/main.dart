@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,27 +15,54 @@ import 'core/providers/providers.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'core/push/push_notification_service.dart';
 
-Future<void> _waitForAuthReady(ProviderContainer container) async {
-  const maxAttempts = 120;
-  for (var i = 0; i < maxAttempts; i++) {
-    if (!container.read(authProvider).isLoading) return;
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-  }
-}
-
 Future<void> _initFirebase() async {
   if (kIsWeb) return;
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
-      );
+      ).timeout(const Duration(seconds: 8));
     }
+  } on TimeoutException {
+    if (kDebugMode) debugPrint('[Firebase] init timed out — continuing without FCM');
   } catch (e) {
-    if (kDebugMode) {
-      debugPrint('[Firebase] init skipped: $e');
-    }
+    if (kDebugMode) debugPrint('[Firebase] init skipped: $e');
   }
+}
+
+void _bindAppLinks(ProviderContainer container) {
+  final appLinks = AppLinks();
+  appLinks.uriLinkStream.listen((uri) {
+    final ref = uri.queryParameters['ref'];
+    if (ref != null && ref.isNotEmpty) {
+      container.read(referralStorageProvider).savePendingCode(ref);
+    }
+  });
+  unawaited(
+    appLinks.getInitialLink().then((uri) {
+      final ref = uri?.queryParameters['ref'];
+      if (ref != null && ref.isNotEmpty) {
+        container.read(referralStorageProvider).savePendingCode(ref);
+      }
+    }),
+  );
+}
+
+/// Runs after the first frame so permission dialogs are not hidden behind the splash.
+Future<void> _deferredStartup(ProviderContainer container) async {
+  await Future<void>.delayed(const Duration(milliseconds: 400));
+  unawaited(
+    AppPermissionsService.requestAllAtStartup().timeout(
+      const Duration(seconds: 45),
+      onTimeout: () {},
+    ),
+  );
+  unawaited(
+    PushNotificationService.instance.init(container).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () {},
+    ),
+  );
 }
 
 Future<void> main() async {
@@ -60,29 +89,12 @@ Future<void> main() async {
 
   final container = ProviderContainer();
   container.read(authProvider);
-
-  final appLinks = AppLinks();
-  appLinks.uriLinkStream.listen((uri) {
-    final ref = uri.queryParameters['ref'];
-    if (ref != null && ref.isNotEmpty) {
-      container.read(referralStorageProvider).savePendingCode(ref);
-    }
-  });
-  appLinks.getInitialLink().then((uri) {
-    final ref = uri?.queryParameters['ref'];
-    if (ref != null && ref.isNotEmpty) {
-      container.read(referralStorageProvider).savePendingCode(ref);
-    }
-  });
-
-  await Future.wait([
-    Future<void>.delayed(const Duration(seconds: 2)),
-    AppPermissionsService.requestAllAtStartup(),
-    _waitForAuthReady(container),
-    PushNotificationService.instance.init(container),
-  ]);
-
-  FlutterNativeSplash.remove();
+  _bindAppLinks(container);
 
   runApp(UncontrolledProviderScope(container: container, child: const LiftooApp()));
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    FlutterNativeSplash.remove();
+    unawaited(_deferredStartup(container));
+  });
 }

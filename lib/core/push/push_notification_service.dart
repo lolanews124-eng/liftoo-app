@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -35,9 +36,8 @@ class PushNotificationService {
       final messaging = FirebaseMessaging.instance;
       await messaging.setAutoInitEnabled(true);
 
-      if (Platform.isAndroid) {
-        await messaging.requestPermission(alert: true, badge: true, sound: true);
-      } else {
+      // Android: notification permission is handled by AppPermissionsService after UI is visible.
+      if (Platform.isIOS) {
         await messaging.requestPermission(alert: true, badge: true, sound: true);
       }
 
@@ -48,7 +48,10 @@ class PushNotificationService {
         }
       });
 
-      final token = await messaging.getToken();
+      final token = await messaging.getToken().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => null,
+      );
       if (token != null && await _hasAuthSession(container)) {
         await _syncToken(container, token);
       }
