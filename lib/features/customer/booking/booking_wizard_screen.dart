@@ -16,6 +16,7 @@ import '../../../shared/models/service_location_model.dart';
 import '../../../shared/widgets/gradient_button.dart';
 import '../../../shared/widgets/skeleton_loader.dart';
 import 'widgets/booking_pickup_map.dart';
+import '../../../shared/widgets/assistant_availability_strip.dart';
 import '../../../core/layout/screen_safe_padding.dart';
 import '../home/home_sheets.dart';
 import '../home/quick_book_draft.dart';
@@ -373,6 +374,16 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
               ),
             ),
           ),
+          if (_step == 1 && _selectedCategory != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: AssistantAvailabilityStrip(
+                loading: _assistantsLoading,
+                count: _nearbyWithinRadius.length,
+                matchRadiusKm: _matchRadiusKm,
+                onRetry: _loadNearbyAssistants,
+              ),
+            ),
           if (_selectedCategory != null && _step < 2) _buildPriceBar(),
           SafeBottomBar(
             padding: EdgeInsets.fromLTRB(20, _selectedCategory != null ? 12 : 20, 20, 20),
@@ -431,10 +442,10 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Text(
                     '₹${_selectedCategory!.baseRate.toInt()}/hr • $durationLabel',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.3),
                   ),
                 ],
               ),
@@ -628,8 +639,6 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
     final onMap = _nearbyWithinRadius;
     final addressLine = loc.city.isNotEmpty ? '${loc.address}, ${loc.city}' : loc.address;
 
-    final onlineCount = onMap.length;
-
     return ListView(
       key: const PageStorageKey<String>('booking-step-pickup'),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -655,17 +664,6 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
                   ),
                 ),
               ),
-            Positioned(
-              top: 58,
-              left: 12,
-              right: 12,
-              child: _MapOnlineBadge(
-                loading: _assistantsLoading,
-                count: onlineCount,
-                matchRadiusKm: _matchRadiusKm,
-                onRetry: _loadNearbyAssistants,
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -964,79 +962,6 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
         Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
         Text('₹${amount.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withValues(alpha: 0.95), fontWeight: FontWeight.w600, fontSize: 14)),
       ],
-    );
-  }
-}
-
-class _MapOnlineBadge extends StatelessWidget {
-  final bool loading;
-  final int count;
-  final int matchRadiusKm;
-  final VoidCallback? onRetry;
-
-  const _MapOnlineBadge({
-    required this.loading,
-    required this.count,
-    required this.matchRadiusKm,
-    this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (loading) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-            SizedBox(width: 8),
-            Text('Checking assistants…', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-          ],
-        ),
-      );
-    }
-
-    final available = count > 0;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: available ? AppColors.successLight.withValues(alpha: 0.95) : const Color(0xFFFEE2E2).withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: available ? AppColors.success.withValues(alpha: 0.35) : const Color(0xFFFECACA)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            available ? Icons.check_circle_rounded : Icons.person_off_outlined,
-            size: 18,
-            color: available ? AppColors.success : AppColors.error,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              available
-                  ? '$count assistant${count == 1 ? '' : 's'} online within $matchRadiusKm km'
-                  : 'No assistants online nearby',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-                color: available ? AppColors.navy : AppColors.error,
-              ),
-            ),
-          ),
-          if (!available && onRetry != null)
-            TextButton(
-              onPressed: onRetry,
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
-              child: const Text('Retry'),
-            ),
-        ],
-      ),
     );
   }
 }

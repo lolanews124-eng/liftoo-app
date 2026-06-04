@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/config/media_url.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../data/home_feed_repository.dart';
 
@@ -45,7 +46,7 @@ class HomeFeedAdBanner extends StatelessWidget {
                 AspectRatio(
                   aspectRatio: 2.4,
                   child: CachedNetworkImage(
-                    imageUrl: ad.imageUrl,
+                    imageUrl: resolveMediaUrl(ad.imageUrl),
                     fit: BoxFit.cover,
                     placeholder: (_, _) => Container(
                       color: AppColors.surface,

@@ -36,6 +36,7 @@ class _BookingPickupMapState extends State<BookingPickupMap> {
   Timer? _fitDebounce;
   Set<Marker> _markers = {};
   bool _iconsReady = false;
+  double _zoom = 15.5;
 
   @override
   void initState() {
@@ -166,6 +167,13 @@ class _BookingPickupMapState extends State<BookingPickupMap> {
     await _fitCamera();
   }
 
+  Future<void> _zoomBy(double delta) async {
+    final controller = _mapController;
+    if (controller == null) return;
+    _zoom = (_zoom + delta).clamp(10.0, 20.0);
+    await controller.animateCamera(CameraUpdate.zoomTo(_zoom));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!AppConfig.hasGoogleMapsKey) {
@@ -222,23 +230,44 @@ class _BookingPickupMapState extends State<BookingPickupMap> {
               Positioned(
                 bottom: 12,
                 right: 12,
-                child: Material(
-                  color: Colors.white,
-                  elevation: 3,
-                  shadowColor: Colors.black26,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    onTap: _recenter,
-                    customBorder: const CircleBorder(),
-                    child: const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Icon(Icons.my_location, color: AppColors.primary, size: 22),
-                    ),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _MapCircleButton(icon: Icons.add, onTap: () => _zoomBy(1)),
+                    const SizedBox(height: 8),
+                    _MapCircleButton(icon: Icons.remove, onTap: () => _zoomBy(-1)),
+                    const SizedBox(height: 8),
+                    _MapCircleButton(icon: Icons.my_location, onTap: _recenter),
+                  ],
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MapCircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _MapCircleButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 3,
+      shadowColor: Colors.black26,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: AppColors.primary, size: 22),
         ),
       ),
     );

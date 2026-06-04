@@ -111,6 +111,25 @@ class ApiClient {
         return _unwrap(res.data) as T;
       });
 
+  Future<String> uploadImageFile(String filePath) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+    });
+    final data = await _guard(() async {
+      final res = await dio.post(
+        '/api/v1/upload/file',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+      return _unwrap(res.data) as Map<String, dynamic>;
+    });
+    final url = data['url'] as String?;
+    if (url == null || url.isEmpty) {
+      throw AppException('Upload failed', type: AppErrorType.validation);
+    }
+    return url;
+  }
+
   Future<T> _guard<T>(Future<T> Function() call) async {
     try {
       return await call();

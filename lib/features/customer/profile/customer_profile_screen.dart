@@ -19,8 +19,6 @@ class CustomerProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
-  bool _updatingAvatar = false;
-
   Future<void> _switchRole(BuildContext context, AppRole role) async {
     final ok = await trySwitchRole(context, ref, role);
     if (!ok || !context.mounted) return;
@@ -29,19 +27,7 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
 
   Future<void> _onAvatarPicked(String? path) async {
     if (path == null) return;
-    setState(() => _updatingAvatar = true);
-    try {
-      final user = ref.read(authProvider).user;
-      await ref.read(authProvider.notifier).completeProfile(
-            name: user?.name ?? 'User',
-            phone: user?.phone,
-            avatarUrl: path,
-          );
-    } catch (e) {
-      if (mounted) showAppErrorSnackBar(context, e);
-    } finally {
-      if (mounted) setState(() => _updatingAvatar = false);
-    }
+    context.push('/customer/profile/edit');
   }
 
   @override
@@ -68,7 +54,6 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
               delegate: SliverChildListDelegate([
                 _ProfileHeader(
                   user: user,
-                  updatingAvatar: _updatingAvatar,
                   onPhotoPicked: _onAvatarPicked,
                 ),
                 if (user?.hasAssistant == true) ...[
@@ -80,6 +65,12 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
                 const SizedBox(height: 10),
                 _MenuGroup(
                   items: [
+                    _ProfileMenuItem(
+                      icon: Icons.edit_outlined,
+                      title: 'Edit profile',
+                      subtitle: 'Name, mobile & photo',
+                      onTap: () => context.push('/customer/profile/edit'),
+                    ),
                     _ProfileMenuItem(
                       icon: Icons.location_on_outlined,
                       title: 'Saved addresses',
@@ -154,17 +145,16 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
 
 class _ProfileHeader extends StatelessWidget {
   final UserModel? user;
-  final bool updatingAvatar;
   final void Function(String? path) onPhotoPicked;
 
   const _ProfileHeader({
     required this.user,
-    required this.updatingAvatar,
     required this.onPhotoPicked,
   });
 
   @override
   Widget build(BuildContext context) {
+    final u = user;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -207,15 +197,6 @@ class _ProfileHeader extends StatelessWidget {
                   onPhotoPicked: onPhotoPicked,
                 ),
               ),
-              if (updatingAvatar)
-                const SizedBox(
-                  width: 96,
-                  height: 96,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Colors.white,
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -228,20 +209,20 @@ class _ProfileHeader extends StatelessWidget {
               letterSpacing: -0.3,
             ),
           ),
-          if (user != null && user.email.isNotEmpty) ...[
+          if (u != null && u.email.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              user.email,
+              u.email,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white.withValues(alpha: 0.82),
               ),
             ),
           ],
-          if (user?.phone != null && user!.phone!.isNotEmpty) ...[
+          if (u != null && u.phone != null && u.phone!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              '+91 ${user.phone}',
+              '+91 ${u.phone}',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white.withValues(alpha: 0.72),

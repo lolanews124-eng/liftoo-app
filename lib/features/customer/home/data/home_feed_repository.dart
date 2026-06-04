@@ -1,3 +1,4 @@
+import '../../../../core/config/media_url.dart';
 import '../../../../core/network/api_client.dart';
 
 class HomeFeedAd {
@@ -17,14 +18,20 @@ class HomeFeedAd {
     this.buttonAction = 'url',
   });
 
-  factory HomeFeedAd.fromJson(Map<String, dynamic> json) => HomeFeedAd(
-        id: json['id'] as String,
-        title: json['title'] as String?,
-        imageUrl: json['imageUrl'] as String,
-        buttonLabel: json['buttonLabel'] as String?,
-        buttonLink: json['buttonLink'] as String?,
-        buttonAction: json['buttonAction'] as String? ?? 'url',
-      );
+  factory HomeFeedAd.fromJson(Map<String, dynamic> json) {
+    final rawImage = (json['imageUrl'] ?? json['image_url']) as String?;
+    if (rawImage == null || rawImage.isEmpty) {
+      throw const FormatException('Home feed ad missing imageUrl');
+    }
+    return HomeFeedAd(
+      id: json['id'] as String,
+      title: json['title'] as String?,
+      imageUrl: resolveMediaUrl(rawImage),
+      buttonLabel: (json['buttonLabel'] ?? json['button_label']) as String?,
+      buttonLink: (json['buttonLink'] ?? json['button_link']) as String?,
+      buttonAction: (json['buttonAction'] ?? json['button_action']) as String? ?? 'url',
+    );
+  }
 }
 
 class HomeFeedRepository {
@@ -33,9 +40,13 @@ class HomeFeedRepository {
   HomeFeedRepository(this._api);
 
   Future<HomeFeedAd?> getActiveAd() async {
-    final res = await _api.get<Map<String, dynamic>>('/api/v1/home-feed/ad');
-    final ad = res['ad'];
-    if (ad is! Map<String, dynamic>) return null;
-    return HomeFeedAd.fromJson(ad);
+    try {
+      final res = await _api.get<Map<String, dynamic>>('/api/v1/home-feed/ad');
+      final ad = res['ad'];
+      if (ad is! Map<String, dynamic>) return null;
+      return HomeFeedAd.fromJson(ad);
+    } catch (_) {
+      return null;
+    }
   }
 }

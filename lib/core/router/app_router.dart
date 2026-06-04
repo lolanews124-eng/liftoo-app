@@ -16,6 +16,7 @@ import '../../features/customer/booking/booking_wizard_screen.dart';
 import '../../features/customer/booking/live_booking_screen.dart';
 import '../../features/customer/bookings/my_bookings_screen.dart';
 import '../../features/customer/profile/customer_profile_screen.dart';
+import '../../features/customer/profile/edit_profile_screen.dart';
 import '../../features/customer/wallet/wallet_add_money_screen.dart';
 import '../../features/customer/wallet/wallet_screen.dart';
 import '../../features/customer/referral/referral_screen.dart';
@@ -161,6 +162,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/customer/addresses',
         pageBuilder: (_, state) => appSlidePage(key: state.pageKey, child: const AddressesScreen()),
+      ),
+      GoRoute(
+        path: '/customer/profile/edit',
+        pageBuilder: (_, state) => appSlidePage(key: state.pageKey, child: const EditProfileScreen()),
       ),
       GoRoute(
         path: '/customer/wallet/add',

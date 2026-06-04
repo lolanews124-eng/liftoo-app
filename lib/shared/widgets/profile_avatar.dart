@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/config/media_url.dart';
 import '../../core/theme/app_colors.dart';
 
 class ProfileAvatar extends StatelessWidget {
@@ -26,7 +27,9 @@ class ProfileAvatar extends StatelessWidget {
   String get _initial => (name ?? phone ?? 'U')[0].toUpperCase();
 
   bool get _hasNetworkImage =>
-      avatarUrl != null && avatarUrl!.startsWith('http') && !avatarUrl!.startsWith('upload://');
+      avatarUrl != null &&
+      (avatarUrl!.startsWith('http') || avatarUrl!.startsWith('/')) &&
+      !avatarUrl!.startsWith('upload://');
 
   bool get _hasLocalFile {
     if (avatarUrl == null || avatarUrl!.startsWith('http') || avatarUrl!.startsWith('upload://')) return false;
@@ -38,7 +41,7 @@ class ProfileAvatar extends StatelessWidget {
   }
 
   ImageProvider? get _imageProvider {
-    if (_hasNetworkImage) return CachedNetworkImageProvider(avatarUrl!);
+    if (_hasNetworkImage) return CachedNetworkImageProvider(resolveMediaUrl(avatarUrl!));
     if (_hasLocalFile) return FileImage(File(avatarUrl!));
     return null;
   }
