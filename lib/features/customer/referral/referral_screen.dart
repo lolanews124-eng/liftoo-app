@@ -66,9 +66,10 @@ class _ReferralScreenState extends ConsumerState<ReferralScreen> {
       );
     }
 
-    final code = _info?['code'] as String? ?? 'LIFDEV';
-    final reward = (_info?['rewardPerReferral'] as num?)?.toInt() ?? 100;
+    final code = _info?['code'] as String? ?? '—';
+    final reward = (_info?['rewardPerReferral'] as num?)?.toInt();
     final referrals = _info?['referrals'] as List<dynamic>? ?? [];
+    final hasReward = reward != null && reward > 0;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -121,7 +122,9 @@ class _ReferralScreenState extends ConsumerState<ReferralScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Earn ₹$reward in your wallet for every successful referral',
+                    hasReward
+                        ? 'Earn ₹$reward in your wallet for every successful referral'
+                        : 'Invite friends — referral reward is set by Liftoo admin',
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14, height: 1.4),
                   ),
                 ],

@@ -5,8 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/location/location_service.dart';
 import '../../../core/router/back_navigation.dart';
-import '../../../core/dev/dev_data_store.dart';
-import '../../../core/dev/dev_mock.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/providers/providers.dart';
@@ -16,6 +14,7 @@ import '../../../shared/models/booking_model.dart';
 import '../../../shared/models/nearby_assistant_model.dart';
 import '../../../shared/models/service_location_model.dart';
 import '../../../shared/widgets/gradient_button.dart';
+import '../../../shared/widgets/skeleton_loader.dart';
 import 'widgets/booking_pickup_map.dart';
 import '../../../core/layout/screen_safe_padding.dart';
 import '../home/home_sheets.dart';
@@ -35,6 +34,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
   Timer? _assistantsLoadDebounce;
   Timer? _nearbyRefreshTimer;
   List<ServiceCategoryModel> _categories = [];
+  bool _categoriesLoading = true;
   ServiceCategoryModel? _selectedCategory;
   int _duration = 60;
   ServiceLocationModel? _selectedLocation;
@@ -124,6 +124,7 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
   }
 
   Future<void> _loadCategories() async {
+    if (mounted) setState(() => _categoriesLoading = true);
     try {
       final cats = await ref.read(bookingRepositoryProvider).getCategories();
       if (!mounted) return;
@@ -143,26 +144,12 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      final useMock = await devIsMockSession(ref.read(tokenStorageProvider));
       setState(() {
-        if (useMock) {
-          _categories = DevDataStore.categories;
-          final slug = widget.draft?.categorySlug;
-          ServiceCategoryModel? picked;
-          if (slug != null) {
-            for (final c in _categories) {
-              if (c.slug == slug) {
-                picked = c;
-                break;
-              }
-            }
-          }
-          _selectedCategory = picked ?? (_categories.isNotEmpty ? _categories.first : null);
-        } else {
-          _categories = [];
-          _selectedCategory = null;
-        }
+        _categories = [];
+        _selectedCategory = null;
       });
+    } finally {
+      if (mounted) setState(() => _categoriesLoading = false);
     }
   }
 
@@ -411,6 +398,8 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
 
   bool get _continueEnabled {
     if (_loading) return false;
+    if (_step == 0 && _categoriesLoading) return false;
+    if (_step == 0 && _categories.isEmpty) return false;
     if (_step == 1) return _hasValidLocation && _canProceedFromMapStep;
     return true;
   }
@@ -472,6 +461,9 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
   }
 
   Widget _buildStep1() {
+    if (_categoriesLoading) {
+      return const BookingServicesSkeleton();
+    }
     if (_categories.isEmpty) {
       return Center(
         child: Padding(

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/location/location_service.dart';
-import '../../../core/dev/dev_data_store.dart';
-import '../../../core/dev/dev_mock.dart';
 import '../../../core/realtime/notification_listener.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -30,7 +28,7 @@ class CustomerHomeScreen extends ConsumerStatefulWidget {
 class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   List<ServiceCategoryModel> _categories = [];
   BookingModel? _blockingBooking;
-  int _referralReward = 100;
+  int? _referralReward;
   bool _loading = true;
 
   ServiceLocationModel? _selectedLocation;
@@ -98,7 +96,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       final blocking = results[1] as BookingModel?;
       final notifs = results[2] as List<dynamic>;
       final referralInfo = results[3] as Map<String, dynamic>;
-      final reward = (referralInfo['rewardPerReferral'] as num?)?.toInt() ?? 100;
+      final reward = (referralInfo['rewardPerReferral'] as num?)?.toInt();
       if (mounted) {
         ref.invalidate(customerBlockingBookingProvider);
         setState(() {
@@ -114,25 +112,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
           _loading = false;
         });
       }
-    } catch (e) {
-      if (!mounted) return;
-      final useMock = await devIsMockSession(ref.read(tokenStorageProvider)) ||
-          (DevDataStore.enabled && devShouldUseMock(e));
-      if (useMock) {
-        DevDataStore.instance.ensureSeeded();
-        ref.invalidate(customerBlockingBookingProvider);
-        setState(() {
-          _categories = DevDataStore.categories;
-          _blockingBooking = DevDataStore.instance.getCustomerBlockingBooking();
-          _referralReward =
-              (DevDataStore.instance.getReferrals()['rewardPerReferral'] as num?)?.toInt() ?? 100;
-          ref.read(unreadNotificationCountProvider.notifier).state =
-              DevDataStore.instance.unreadNotificationCount;
-          _loading = false;
-        });
-      } else if (mounted) {
-        setState(() => _loading = false);
-      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -164,7 +145,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final notifCount = ref.watch(unreadNotificationCountProvider);
-    final wallet = user?.walletBalance ?? DevDataStore.instance.walletBalance;
+    final wallet = user?.walletBalance ?? 0;
     final name = user?.name?.split(' ').first ?? 'there';
 
     return Scaffold(
@@ -193,10 +174,11 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                           ),
                           if (_canBook) _buildQuickBookSection() else if (_blockingBooking != null) _buildBlockingBooking(_blockingBooking!),
                           _buildCategoriesSection(),
-                          HomeReferralBanner(
-                            rewardAmount: _referralReward,
-                            onTap: () => context.push('/referral'),
-                          ),
+                          if (_referralReward != null && _referralReward! > 0)
+                            HomeReferralBanner(
+                              rewardAmount: _referralReward!,
+                              onTap: () => context.push('/referral'),
+                            ),
                           const SizedBox(height: 100),
                         ],
                       ),
@@ -313,7 +295,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   }
 
   Widget _buildCategoriesSection() {
-    final items = _categories.isNotEmpty ? _categories : DevDataStore.categories;
+    final items = _categories;
     return HomeServicesStrip(
       categories: items,
       selectedSlug: _categorySlug,
