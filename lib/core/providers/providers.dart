@@ -15,6 +15,7 @@ import '../../features/chat/data/chat_repository.dart';
 import '../../features/promos/data/promos_repository.dart';
 import '../../features/payouts/data/payouts_repository.dart';
 import '../../features/geocode/data/geocode_repository.dart';
+import '../../features/customer/home/data/home_feed_repository.dart';
 
 final tokenStorageProvider = Provider((ref) => TokenStorage());
 
@@ -93,4 +94,8 @@ final promosRepositoryProvider = Provider((ref) {
 
 final payoutsRepositoryProvider = Provider((ref) {
   return PayoutsRepository(ref.watch(apiClientProvider), ref.watch(tokenStorageProvider));
+});
+
+final homeFeedRepositoryProvider = Provider((ref) {
+  return HomeFeedRepository(ref.watch(apiClientProvider));
 });

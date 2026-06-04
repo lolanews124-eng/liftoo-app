@@ -27,108 +27,149 @@ class HomeQuickBookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Container(
-        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.navy, Color(0xFF002A5C)],
+            colors: [Color(0xFF001A3E), Color(0xFF0A2F5C), Color(0xFF123D6E)],
           ),
-          borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: AppColors.navy.withValues(alpha: 0.28),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
+              color: AppColors.navy.withValues(alpha: 0.32),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -24,
+                top: -24,
+                child: Container(
+                  width: 120,
+                  height: 120,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.bolt_rounded, color: AppColors.primary, size: 22),
-                ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Quick Book',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withValues(alpha: 0.12),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'From ₹49',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11),
-                  ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primary.withValues(alpha: 0.35),
+                                AppColors.primary.withValues(alpha: 0.15),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+                          ),
+                          child: const Icon(Icons.bolt_rounded, color: AppColors.primary, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Quick Book',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 20,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Book in under 60 seconds',
+                                style: TextStyle(color: Color(0xB3FFFFFF), fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.45)),
+                          ),
+                          child: const Text(
+                            'From ₹49',
+                            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _StepField(
+                      step: 1,
+                      icon: Icons.location_on_rounded,
+                      label: 'Where',
+                      value: locationLoading ? 'Getting location…' : locationLabel,
+                      onTap: locationLoading ? null : onLocationTap,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _StepField(
+                            step: 2,
+                            icon: Icons.shopping_bag_outlined,
+                            label: 'Service',
+                            value: serviceLabel,
+                            onTap: onServiceTap,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _StepField(
+                            step: 3,
+                            icon: Icons.timer_outlined,
+                            label: 'Duration',
+                            value: durationLabel,
+                            onTap: onDurationTap,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    GradientButton(
+                      label: 'Find Assistant',
+                      icon: Icons.arrow_forward_rounded,
+                      onPressed: onFindAssistant,
+                      radius: 16,
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _trustChip(Icons.verified_user_rounded, 'Verified'),
+                        _trustChip(Icons.schedule_rounded, 'On-time'),
+                        _trustChip(Icons.lock_outline_rounded, 'Secure'),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Book in under 60 seconds',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 12),
-            ),
-            const SizedBox(height: 14),
-            _QuickField(
-              icon: Icons.location_on_rounded,
-              label: 'Location',
-              value: locationLoading ? 'Getting location…' : locationLabel,
-              onTap: locationLoading ? null : onLocationTap,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickField(
-                    icon: Icons.shopping_bag_outlined,
-                    label: 'Service',
-                    value: serviceLabel,
-                    onTap: onServiceTap,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _QuickField(
-                    icon: Icons.timer_outlined,
-                    label: 'Duration',
-                    value: durationLabel,
-                    onTap: onDurationTap,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            GradientButton(
-              label: 'Find Assistant',
-              icon: Icons.arrow_forward_rounded,
-              onPressed: onFindAssistant,
-              radius: 14,
-            ),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _trustChip(Icons.verified_user_outlined, 'Verified'),
-                _trustChip(Icons.access_time_rounded, 'On-time'),
-                _trustChip(Icons.shield_outlined, 'Secure'),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -138,21 +179,23 @@ class HomeQuickBookCard extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: Colors.white.withValues(alpha: 0.5), size: 16),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.45), size: 15),
         const SizedBox(width: 5),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11, fontWeight: FontWeight.w600)),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11, fontWeight: FontWeight.w600)),
       ],
     );
   }
 }
 
-class _QuickField extends StatelessWidget {
+class _StepField extends StatelessWidget {
+  final int step;
   final IconData icon;
   final String label;
   final String value;
   final VoidCallback? onTap;
 
-  const _QuickField({
+  const _StepField({
+    required this.step,
     required this.icon,
     required this.label,
     required this.value,
@@ -162,33 +205,47 @@ class _QuickField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.white.withValues(alpha: 0.96),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: AppColors.primary),
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$step',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.primary),
+                ),
+              ),
               const SizedBox(width: 10),
+              Icon(icon, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
-                    const SizedBox(height: 2),
+                    Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 3),
                     Text(
                       value,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.navy),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textSecondary),
+              Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary.withValues(alpha: 0.7)),
             ],
           ),
         ),

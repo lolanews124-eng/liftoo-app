@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "000000000000",
+    "project_number": "871816301139",
     "project_id": "liftoo-6672b",
     "storage_bucket": "liftoo-6672b.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "mobilesdk_app_id": "1:871816301139:android:a9349c531299081b5394a6",
         "android_client_info": {
           "package_name": "com.liftoo.liftoo_mobile"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSy0000000000000000000000000000000"
+          "current_key": "AIzaSyCtBUfvyH8b4ZBlJcTesr3M-PNHmWYQsPY"
         }
       ],
       "services": {

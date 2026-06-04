@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/layout/screen_safe_padding.dart';
@@ -6,8 +7,6 @@ import '../../../core/legal/legal_links.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/user_model.dart';
-import '../home/home_sheets.dart';
-import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/role_switch_guard.dart';
@@ -50,101 +49,449 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
     final user = ref.watch(authProvider).user;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: ListView(
-        padding: shellScrollPadding(context, top: 8),
-        children: [
-          Center(
-            child: Column(
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    ProfileAvatar(
-                      name: user?.name,
-                      phone: user?.phone,
-                      avatarUrl: user?.avatarUrl,
-                      radius: 44,
-                      editable: true,
-                      onPhotoPicked: _onAvatarPicked,
-                    ),
-                    if (_updatingAvatar)
-                      const SizedBox(
-                        width: 88,
-                        height: 88,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(user?.name ?? 'User', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                Text(user?.email ?? '', style: const TextStyle(color: AppColors.textSecondary)),
-                if (user?.phone != null && user!.phone!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text('+91 ${user.phone}', style: const TextStyle(color: AppColors.textSecondary)),
-                ],
-                const SizedBox(height: 4),
-                Text('Tap photo to change', style: TextStyle(fontSize: 12, color: AppColors.textSecondary.withValues(alpha: 0.8))),
-              ],
+      backgroundColor: AppColors.surface,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            backgroundColor: AppColors.surface,
+            surfaceTintColor: Colors.transparent,
+            title: const Text(
+              'Profile',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: AppColors.navy),
             ),
           ),
-          const SizedBox(height: 24),
-          if (user?.hasAssistant == true) ...[
-            LiftooCard(
-              onTap: () => _switchRole(context, AppRole.assistant),
-              child: const Row(
-                children: [
-                  Icon(Icons.swap_horiz, color: AppColors.primary),
-                  SizedBox(width: 12),
-                  Expanded(child: Text('Switch to Assistant Mode', style: TextStyle(fontWeight: FontWeight.w700))),
-                  Icon(Icons.chevron_right),
+          SliverPadding(
+            padding: shellScrollPadding(context, top: 4),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _ProfileHeader(
+                  user: user,
+                  updatingAvatar: _updatingAvatar,
+                  onPhotoPicked: _onAvatarPicked,
+                ),
+                if (user?.hasAssistant == true) ...[
+                  const SizedBox(height: 16),
+                  _RoleSwitchCard(onTap: () => _switchRole(context, AppRole.assistant)),
                 ],
-              ),
+                const SizedBox(height: 24),
+                _SectionLabel('Account'),
+                const SizedBox(height: 10),
+                _MenuGroup(
+                  items: [
+                    _ProfileMenuItem(
+                      icon: Icons.location_on_outlined,
+                      title: 'Saved addresses',
+                      subtitle: 'Home, work & more',
+                      onTap: () => context.push('/customer/addresses'),
+                    ),
+                    _ProfileMenuItem(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Wallet',
+                      subtitle: 'Balance & transactions',
+                      onTap: () => context.go('/customer/wallet'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _SectionLabel('Rewards'),
+                const SizedBox(height: 10),
+                _MenuGroup(
+                  items: [
+                    _ProfileMenuItem(
+                      icon: Icons.card_giftcard_outlined,
+                      title: 'Refer & earn',
+                      subtitle: 'Invite friends, get rewards',
+                      accent: AppColors.purple,
+                      onTap: () => context.push('/referral'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _SectionLabel('Support'),
+                const SizedBox(height: 10),
+                _MenuGroup(
+                  items: [
+                    _ProfileMenuItem(
+                      icon: Icons.support_agent_rounded,
+                      title: 'Help & Support',
+                      subtitle: 'FAQs, contact & tickets',
+                      onTap: () => context.push('/support'),
+                    ),
+                    _ProfileMenuItem(
+                      icon: Icons.policy_outlined,
+                      title: 'Legal & policies',
+                      subtitle: 'Terms, privacy & more',
+                      onTap: () async {
+                        final ok = await openLegalIndex();
+                        if (!ok && context.mounted) {
+                          showAppErrorSnackBar(
+                            context,
+                            Exception('Could not open liftoo.in. Check browser app.'),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                _LogoutButton(
+                  onPressed: () async {
+                    await ref.read(authProvider.notifier).logout();
+                    if (context.mounted) context.go('/auth/login');
+                  },
+                ),
+                const SizedBox(height: 8),
+              ]),
             ),
-            const SizedBox(height: 12),
-          ],
-          _tile(Icons.location_on_outlined, 'Saved addresses', () => context.push('/customer/addresses')),
-          _tile(Icons.help_outline, 'Help & Support', () => context.push('/support')),
-          _tile(Icons.account_balance_wallet_outlined, 'Wallet', () => context.go('/customer/wallet')),
-          _tile(Icons.card_giftcard_outlined, 'Referral', () => context.push('/referral')),
-          _tile(Icons.history, 'Booking history', () => context.go('/customer/bookings')),
-          _tile(Icons.headset_mic_outlined, 'Support', () => showSupportSheet(context)),
-          _tile(Icons.help_outline, 'Help', () => showHelpSheet(context)),
-          _tile(Icons.notifications_outlined, 'Notifications', () => context.push('/notifications')),
-          _tile(Icons.policy_outlined, 'Legal & policies', () async {
-            final ok = await openLegalIndex();
-            if (!ok && context.mounted) {
-              showAppErrorSnackBar(context, Exception('Could not open liftoo.in. Check browser app.'));
-            }
-          }),
-          const SizedBox(height: 24),
-          TextButton.icon(
-            onPressed: () async {
-              await ref.read(authProvider.notifier).logout();
-              if (context.mounted) context.go('/auth/login');
-            },
-            icon: const Icon(Icons.logout, color: AppColors.error),
-            label: const Text('Logout', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _tile(IconData icon, String title, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: LiftooCard(
+class _ProfileHeader extends StatelessWidget {
+  final UserModel? user;
+  final bool updatingAvatar;
+  final void Function(String? path) onPhotoPicked;
+
+  const _ProfileHeader({
+    required this.user,
+    required this.updatingAvatar,
+    required this.onPhotoPicked,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.navy,
+            AppColors.navy.withValues(alpha: 0.92),
+            AppColors.primary.withValues(alpha: 0.85),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withValues(alpha: 0.22),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2),
+                ),
+                child: ProfileAvatar(
+                  name: user?.name,
+                  phone: user?.phone,
+                  avatarUrl: user?.avatarUrl,
+                  radius: 46,
+                  editable: true,
+                  onPhotoPicked: onPhotoPicked,
+                ),
+              ),
+              if (updatingAvatar)
+                const SizedBox(
+                  width: 96,
+                  height: 96,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            user?.name ?? 'User',
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -0.3,
+            ),
+          ),
+          if (user != null && user.email.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              user.email,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white.withValues(alpha: 0.82),
+              ),
+            ),
+          ],
+          if (user?.phone != null && user!.phone!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              '+91 ${user.phone}',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            'Tap photo to update',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.55),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoleSwitchCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _RoleSwitchCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      elevation: 0,
+      shadowColor: Colors.black.withValues(alpha: 0.06),
+      child: InkWell(
         onTap: onTap,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primaryLight,
+                Colors.white,
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.swap_horiz_rounded, color: AppColors.primary, size: 22),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Assistant mode', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      Text(
+                        'Switch to accept booking requests',
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppColors.primary.withValues(alpha: 0.7)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileMenuItem {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Color? accent;
+  final VoidCallback onTap;
+
+  const _ProfileMenuItem({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.accent,
+    required this.onTap,
+  });
+}
+
+class _MenuGroup extends StatelessWidget {
+  final List<_ProfileMenuItem> items;
+
+  const _MenuGroup({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
           children: [
-            Icon(icon, color: AppColors.primary),
-            const SizedBox(width: 12),
-            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600))),
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            for (var i = 0; i < items.length; i++) ...[
+              _MenuRow(item: items[i]),
+              if (i < items.length - 1)
+                Divider(
+                  height: 1,
+                  indent: 68,
+                  endIndent: 16,
+                  color: AppColors.surface,
+                ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MenuRow extends StatelessWidget {
+  final _ProfileMenuItem item;
+
+  const _MenuRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = item.accent ?? AppColors.primary;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          item.onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(item.icon, color: accent, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: AppColors.navy,
+                      ),
+                    ),
+                    if (item.subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        item.subtitle!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondary.withValues(alpha: 0.6),
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoutButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _LogoutButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.error,
+          side: BorderSide(color: AppColors.error.withValues(alpha: 0.35)),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: Colors.white,
+        ),
+        icon: const Icon(Icons.logout_rounded, size: 20),
+        label: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }

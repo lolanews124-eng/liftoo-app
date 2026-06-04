@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
@@ -12,6 +14,7 @@ import 'app.dart';
 import 'core/config/app_config.dart';
 import 'core/permissions/app_permissions_service.dart';
 import 'core/providers/providers.dart';
+import 'core/push/fcm_background_handler.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'core/push/push_notification_service.dart';
 
@@ -48,26 +51,31 @@ void _bindAppLinks(ProviderContainer container) {
   );
 }
 
-/// Runs after the first frame so permission dialogs are not hidden behind the splash.
+/// Permissions first, then FCM init + token sync (background push needs a valid token on the server).
 Future<void> _deferredStartup(ProviderContainer container) async {
   await Future<void>.delayed(const Duration(milliseconds: 400));
-  unawaited(
-    AppPermissionsService.requestAllAtStartup().timeout(
+  try {
+    await AppPermissionsService.requestAllAtStartup().timeout(
       const Duration(seconds: 45),
       onTimeout: () {},
-    ),
-  );
-  unawaited(
-    PushNotificationService.instance.init(container).timeout(
-      const Duration(seconds: 15),
+    );
+    await PushNotificationService.instance.init(container).timeout(
+      const Duration(seconds: 25),
       onTimeout: () {},
-    ),
-  );
+    );
+    await PushNotificationService.instance.syncTokenIfLoggedIn(container);
+  } catch (e) {
+    if (kDebugMode) debugPrint('[Startup] push setup failed: $e');
+  }
 }
 
 Future<void> main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
   await _initFirebase();
 

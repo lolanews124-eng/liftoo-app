@@ -9,11 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../../firebase_options.dart';
 
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-}
-
 /// Registers FCM token with Liftoo API after login.
 class PushNotificationService {
   PushNotificationService._();
@@ -31,15 +26,10 @@ class PushNotificationService {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
       }
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       final messaging = FirebaseMessaging.instance;
       await messaging.setAutoInitEnabled(true);
-
-      // Android: notification permission is handled by AppPermissionsService after UI is visible.
-      if (Platform.isIOS) {
-        await messaging.requestPermission(alert: true, badge: true, sound: true);
-      }
+      await _requestNotificationPermission(messaging);
 
       messaging.onTokenRefresh.listen((token) async {
         final c = _container;
@@ -48,18 +38,11 @@ class PushNotificationService {
         }
       });
 
-      final token = await messaging.getToken().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => null,
-      );
-      if (token != null && await _hasAuthSession(container)) {
-        await _syncToken(container, token);
-      }
-
       _initialized = true;
+      await syncTokenIfLoggedIn(container);
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[FCM] init skipped: $e');
+        debugPrint('[FCM] init failed: $e');
       }
     }
   }
@@ -67,12 +50,28 @@ class PushNotificationService {
   Future<void> syncAfterLogin(Ref ref) async {
     if (!_initialized) {
       await init(ref.container);
-      return;
     }
+    await syncTokenIfLoggedIn(ref.container);
+  }
+
+  Future<void> syncTokenIfLoggedIn(ProviderContainer container) async {
+    if (!_initialized || kIsWeb) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    if (!await _hasAuthSession(container)) return;
+
     try {
-      final token = await FirebaseMessaging.instance.getToken();
-      if (token != null) await _syncToken(ref.container, token);
-    } catch (_) {}
+      final token = await FirebaseMessaging.instance.getToken().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => null,
+      );
+      if (token != null) {
+        await _syncToken(container, token);
+      } else if (kDebugMode) {
+        debugPrint('[FCM] getToken returned null — check Firebase config / Play Services');
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[FCM] syncTokenIfLoggedIn failed: $e');
+    }
   }
 
   Future<void> clearToken(Ref ref) async {
@@ -83,6 +82,20 @@ class PushNotificationService {
     try {
       await FirebaseMessaging.instance.deleteToken();
     } catch (_) {}
+  }
+
+  Future<void> _requestNotificationPermission(FirebaseMessaging messaging) async {
+    if (Platform.isIOS) {
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      return;
+    }
+    if (Platform.isAndroid) {
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
   }
 
   Future<bool> _hasAuthSession(ProviderContainer container) async {

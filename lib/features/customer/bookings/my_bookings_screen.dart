@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
+
 import '../../../core/layout/screen_safe_padding.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../../shared/widgets/empty_state.dart';
-import '../../../shared/widgets/assistant_info.dart';
-import '../../../shared/widgets/liftoo_card.dart';
-import '../../../shared/widgets/network_error_state.dart';
 import '../../../shared/widgets/booking_detail_sheet.dart';
+import '../../../shared/widgets/network_error_state.dart';
 import '../../../shared/widgets/skeleton_loader.dart';
 import '../booking/booking_flow.dart';
 import '../booking/cancel_booking_dialog.dart';
+import 'widgets/booking_list_card.dart';
 
 class MyBookingsScreen extends ConsumerStatefulWidget {
   const MyBookingsScreen({super.key});
@@ -50,15 +49,19 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen> with Single
   Future<void> _load(String status) async {
     try {
       final list = await ref.read(bookingRepositoryProvider).getBookings(status: status);
-      if (mounted) setState(() {
-        _data[status] = list;
-        _errors[status] = null;
-      });
+      if (mounted) {
+        setState(() {
+          _data[status] = list;
+          _errors[status] = null;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() {
-        _data[status] = [];
-        _errors[status] = NetworkErrors.userMessage(e);
-      });
+      if (mounted) {
+        setState(() {
+          _data[status] = [];
+          _errors[status] = NetworkErrors.userMessage(e);
+        });
+      }
     }
   }
 
@@ -114,15 +117,27 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen> with Single
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('My Bookings'),
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: const [
-            Tab(text: 'Upcoming'),
-            Tab(text: 'Completed'),
-            Tab(text: 'Cancelled'),
-          ],
+        title: const Text('My Bookings', style: TextStyle(fontWeight: FontWeight.w800)),
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: TabBar(
+            controller: _tabs,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textSecondary,
+            indicatorColor: AppColors.primary,
+            indicatorWeight: 3,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            tabs: const [
+              Tab(text: 'Upcoming'),
+              Tab(text: 'Completed'),
+              Tab(text: 'Cancelled'),
+            ],
+          ),
         ),
       ),
       body: TabBarView(
@@ -147,65 +162,22 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen> with Single
             );
           }
           return RefreshIndicator(
+            color: AppColors.primary,
             onRefresh: () => _load(status),
             child: ListView.builder(
-              padding: shellScrollPadding(context, top: 8),
+              padding: shellScrollPadding(context, top: 12),
               itemCount: list.length,
               itemBuilder: (context, i) {
                 final b = list[i];
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: LiftooCard(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: BookingListCard(
+                    booking: b,
+                    tabStatus: status,
                     onTap: () => _showBookingDetail(b, status),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(b.category?.name ?? 'Booking', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: bookingStatusColor(b.status).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                formatBookingStatusLabel(b.status),
-                                style: TextStyle(color: bookingStatusColor(b.status), fontSize: 12, fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(b.venueName, style: const TextStyle(color: AppColors.textSecondary)),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(DateFormat('MMM d, h:mm a').format(b.scheduledAt)),
-                            Text('₹${b.totalAmount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                          ],
-                        ),
-                        if (b.assistant != null) ...[
-                          const SizedBox(height: 8),
-                          Text(assistantSummaryLine(b.assistant), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        ],
-                        if (status == 'upcoming' && b.isActive && b.status != 'started') ...[
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () => _cancel(b),
-                              child: const Text('Cancel', style: TextStyle(color: AppColors.error)),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                    onCancel: status == 'upcoming' && b.isActive && b.status != 'started'
+                        ? () => _cancel(b)
+                        : null,
                   ),
                 );
               },

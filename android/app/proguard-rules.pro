@@ -14,3 +14,8 @@
 # Geolocator, image_picker, secure storage plugins
 -keep class com.baseflow.geolocator.** { *; }
 -keep class io.flutter.plugins.** { *; }
+
+# Firebase Cloud Messaging (release minify)
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.firebase.**

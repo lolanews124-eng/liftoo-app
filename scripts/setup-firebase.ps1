@@ -23,12 +23,13 @@ firebase login
 Push-Location $root
 try {
     Write-Host "4/4 Configuring project liftoo-6672b..." -ForegroundColor Cyan
-    flutterfire configure --project=liftoo-6672b --platforms=android,web --yes
+    flutterfire configure --project=liftoo-6672b --platforms=android,ios,web --yes
     & "$flutterBin\flutter.bat" pub get
     Write-Host ""
     Write-Host "Done. Files created:" -ForegroundColor Green
     Write-Host "  - lib/firebase_options.dart"
     Write-Host "  - android/app/google-services.json"
+    Write-Host "  - ios/Runner/GoogleService-Info.plist"
     Write-Host ""
     Write-Host "Next: rebuild APK with flutter build apk --release"
 } finally {

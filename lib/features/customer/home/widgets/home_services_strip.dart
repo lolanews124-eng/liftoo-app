@@ -48,7 +48,7 @@ class HomeServicesStrip extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 76,
+          height: 88,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -100,8 +100,8 @@ class _ServiceChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          width: 72,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          width: 76,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
           decoration: BoxDecoration(
             color: selected ? color.withValues(alpha: 0.1) : Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -128,7 +128,7 @@ class _ServiceChip extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 16, color: color),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               Text(
                 label,
                 textAlign: TextAlign.center,
@@ -137,16 +137,17 @@ class _ServiceChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  height: 1.1,
+                  height: 1.25,
                   color: selected ? color : AppColors.navy,
                 ),
               ),
+              const SizedBox(height: 4),
               Text(
                 '₹$rate/hr',
                 style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 9,
                   fontWeight: FontWeight.w600,
-                  height: 1.1,
+                  height: 1.2,
                   color: AppColors.textSecondary.withValues(alpha: 0.9),
                 ),
               ),

@@ -59,13 +59,13 @@ class HomeScreenSkeleton extends StatelessWidget {
         const SkeletonBox(width: 120, height: 18, radius: 6),
         const SizedBox(height: 12),
         SizedBox(
-          height: 76,
+          height: 88,
           child: Row(
             children: List.generate(
               5,
               (i) => Padding(
                 padding: EdgeInsets.only(right: i == 4 ? 0 : 8),
-                child: const SkeletonBox(width: 72, height: 76, radius: 14),
+                child: const SkeletonBox(width: 76, height: 88, radius: 14),
               ),
             ),
           ),
