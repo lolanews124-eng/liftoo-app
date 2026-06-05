@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/config/media_url.dart';
+import '../../core/permissions/app_permissions_service.dart';
 import '../../core/theme/app_colors.dart';
 
 class ProfileAvatar extends StatelessWidget {
@@ -48,6 +49,7 @@ class ProfileAvatar extends StatelessWidget {
 
   Future<void> _pick(BuildContext context) async {
     if (!editable || onPhotoPicked == null) return;
+    if (!await AppPermissionsService.ensureMediaAccess()) return;
     final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file != null) onPhotoPicked!(file.path);
   }

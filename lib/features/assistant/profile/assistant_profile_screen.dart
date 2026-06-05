@@ -7,6 +7,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/assistant_verification_model.dart';
 import '../../../shared/models/user_model.dart';
+import '../../../shared/widgets/delete_account_button.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -158,6 +159,7 @@ class _AssistantProfileScreenState extends ConsumerState<AssistantProfileScreen>
               icon: const Icon(Icons.logout, color: AppColors.error),
               label: const Text('Logout', style: TextStyle(color: AppColors.error)),
             ),
+            const Center(child: DeleteAccountButton()),
           ],
         ),
       ),

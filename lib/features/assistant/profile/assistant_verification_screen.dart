@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/permissions/app_permissions_service.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/providers/providers.dart';
@@ -73,6 +74,14 @@ class _AssistantVerificationScreenState extends ConsumerState<AssistantVerificat
   }
 
   Future<void> _submitPhoto(VerificationDocType type) async {
+    if (!await AppPermissionsService.ensureMediaAccess()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo access is required to upload documents')),
+        );
+      }
+      return;
+    }
     final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file == null || !mounted) return;
     setState(() => _submitting = true);

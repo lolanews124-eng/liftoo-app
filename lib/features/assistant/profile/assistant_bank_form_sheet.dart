@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/permissions/app_permissions_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/keyboard_aware_scroll.dart';
 
@@ -111,6 +112,14 @@ class _BankFormSheetState extends State<_BankFormSheet> {
   }
 
   Future<void> _pickPassbook() async {
+    if (!await AppPermissionsService.ensureMediaAccess()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo access is required to upload passbook')),
+        );
+      }
+      return;
+    }
     final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file != null) setState(() => _passbookPath = file.path);
   }

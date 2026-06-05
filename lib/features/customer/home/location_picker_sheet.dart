@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/location/location_service.dart';
+import '../../../core/permissions/app_permissions_service.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/geocode_models.dart';
@@ -114,6 +115,14 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
   }
 
   Future<void> _useGps() async {
+    if (!await AppPermissionsService.ensureLocationAccess()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location access is required to use GPS')),
+        );
+      }
+      return;
+    }
     setState(() => _gpsLoading = true);
     final loc = await LocationService.resolveCurrentLocation();
     if (mounted) {

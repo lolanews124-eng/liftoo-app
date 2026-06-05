@@ -331,7 +331,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     final profile = b.assistant?['assistantProfile'] as Map<String, dynamic>?;
     final rating = (profile?['rating'] as num?)?.toDouble() ?? 4.9;
     final totalJobs = (profile?['totalJobs'] as num?)?.toInt() ?? 0;
-    final assistantPhone = b.assistant?['phone'] as String? ?? '9876543211';
+    final assistantPhone = b.assistant?['phone'] as String?;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -404,7 +404,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                     ),
                   ),
                 ),
-                if (!b.isPaymentPending && b.assistant != null) ...[
+                if (!b.isPaymentPending && b.assistant != null && assistantPhone != null && assistantPhone.isNotEmpty) ...[
                   const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton.icon(

@@ -3,33 +3,43 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:permission_handler/permission_handler.dart';
 
-/// Requests every runtime permission once when the app opens (cold start).
+/// Runtime permissions — notifications at cold start; others when a feature needs them.
 class AppPermissionsService {
-  static var _requested = false;
+  static var _notificationsRequested = false;
 
-  static Future<void> requestAllAtStartup() async {
-    if (kIsWeb || _requested) return;
-    _requested = true;
+  static Future<void> requestNotificationsAtStartup() async {
+    if (kIsWeb || _notificationsRequested) return;
+    _notificationsRequested = true;
+    await _request(Permission.notification);
+  }
 
-    final permissions = <Permission>[
-      Permission.locationWhenInUse,
-      Permission.camera,
-      Permission.notification,
-    ];
-
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+  static Future<bool> ensureMediaAccess() async {
+    if (kIsWeb) return true;
+    final permissions = <Permission>[Permission.camera];
+    if (Platform.isAndroid || Platform.isIOS) {
       permissions.add(Permission.photos);
     }
-
     for (final permission in permissions) {
-      try {
-        final status = await permission.status;
-        if (status.isGranted || status.isLimited) continue;
-        if (status.isPermanentlyDenied) continue;
-        await permission.request();
-      } catch (_) {
-        // Plugin unavailable on some platforms — continue with others.
-      }
+      final granted = await _request(permission);
+      if (!granted) return false;
+    }
+    return true;
+  }
+
+  static Future<bool> ensureLocationAccess() async {
+    if (kIsWeb) return true;
+    return _request(Permission.locationWhenInUse);
+  }
+
+  static Future<bool> _request(Permission permission) async {
+    try {
+      var status = await permission.status;
+      if (status.isGranted || status.isLimited) return true;
+      if (status.isPermanentlyDenied) return false;
+      status = await permission.request();
+      return status.isGranted || status.isLimited;
+    } catch (_) {
+      return false;
     }
   }
 }

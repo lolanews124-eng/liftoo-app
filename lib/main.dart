@@ -55,7 +55,7 @@ void _bindAppLinks(ProviderContainer container) {
 Future<void> _deferredStartup(ProviderContainer container) async {
   await Future<void>.delayed(const Duration(milliseconds: 400));
   try {
-    await AppPermissionsService.requestAllAtStartup().timeout(
+    await AppPermissionsService.requestNotificationsAtStartup().timeout(
       const Duration(seconds: 45),
       onTimeout: () {},
     );

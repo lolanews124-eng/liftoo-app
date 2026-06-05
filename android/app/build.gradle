@@ -61,7 +61,13 @@ android {
 
     buildTypes {
         release {
-            signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
+            if (!keystorePropertiesFile.exists()) {
+                throw new GradleException(
+                    "Release builds require android/key.properties. " +
+                    "Run: frontend/scripts/setup-playstore-keystore.ps1"
+                )
+            }
+            signingConfig signingConfigs.release
             minifyEnabled = true
             shrinkResources = true
             proguardFiles(

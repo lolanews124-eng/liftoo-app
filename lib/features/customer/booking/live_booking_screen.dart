@@ -318,7 +318,7 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
     final profile = b.assistant!['assistantProfile'] as Map<String, dynamic>?;
     final rating = (profile?['rating'] as num?)?.toDouble() ?? 4.9;
     final totalJobs = (profile?['totalJobs'] as num?)?.toInt() ?? 0;
-    final assistantPhone = b.assistant?['phone'] as String? ?? '9876543211';
+    final assistantPhone = b.assistant?['phone'] as String?;
 
     return LiftooCard(
       child: Row(
@@ -367,10 +367,11 @@ class _LiveBookingScreenState extends ConsumerState<LiveBookingScreen> {
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => callAssistant(assistantPhone),
-            icon: const Icon(Icons.phone, color: AppColors.primary),
-          ),
+          if (assistantPhone != null && assistantPhone.isNotEmpty)
+            IconButton(
+              onPressed: () => callAssistant(assistantPhone),
+              icon: const Icon(Icons.phone, color: AppColors.primary),
+            ),
         ],
       ),
     );

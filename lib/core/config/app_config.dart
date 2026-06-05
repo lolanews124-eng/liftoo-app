@@ -10,4 +10,7 @@ class AppConfig {
 
   static String legalUrl(String slug) => 'https://liftoo.in/legal/$slug';
   static String get legalIndexUrl => 'https://liftoo.in/legal';
+
+  static const supportEmail = 'contact@liftoo.in';
+  static const accountDeletionEmail = 'delete@liftoo.in';
 }

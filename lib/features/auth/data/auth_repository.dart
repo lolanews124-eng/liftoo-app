@@ -124,6 +124,11 @@ class AuthRepository {
     });
   }
 
+  Future<void> deleteAccount() async {
+    await _api.delete<Map<String, dynamic>>('/api/v1/users/me');
+    await logout();
+  }
+
   Future<void> logout() async {
     await _setAssistantOfflineBeforeClear();
     _socket.disconnect();

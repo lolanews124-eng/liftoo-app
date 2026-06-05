@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -87,9 +88,8 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _ContactStrip(
-              onCall: () => _launchTel('18001234567'),
-              onEmail: () => _launchEmail('help@liftoo.in'),
-              onWhatsApp: () => _launchWhatsApp('919876543210'),
+              onSupportEmail: () => _launchEmail(AppConfig.supportEmail),
+              onDeletionEmail: () => _launchEmail(AppConfig.accountDeletionEmail),
             ),
             const SizedBox(height: 24),
             const _SectionTitle('FAQs'),
@@ -109,6 +109,10 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             const _FaqTile(
               q: 'How does Refer & Earn work?',
               a: 'Share your referral code. When a friend completes their first paid booking, you earn the reward shown in Refer & Earn.',
+            ),
+            const _FaqTile(
+              q: 'How do I delete my account?',
+              a: 'Open Profile → Delete account, or email delete@liftoo.in from your registered email. Active bookings must be completed or cancelled first.',
             ),
             const SizedBox(height: 28),
             const _SectionTitle('Raise a ticket'),
@@ -212,14 +216,12 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _ContactStrip extends StatelessWidget {
-  final VoidCallback onCall;
-  final VoidCallback onEmail;
-  final VoidCallback onWhatsApp;
+  final VoidCallback onSupportEmail;
+  final VoidCallback onDeletionEmail;
 
   const _ContactStrip({
-    required this.onCall,
-    required this.onEmail,
-    required this.onWhatsApp,
+    required this.onSupportEmail,
+    required this.onDeletionEmail,
   });
 
   @override
@@ -227,15 +229,21 @@ class _ContactStrip extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _ContactChip(icon: Icons.phone_rounded, label: 'Call', onTap: onCall),
+          child: _ContactChip(
+            icon: Icons.email_outlined,
+            label: 'Support',
+            subtitle: AppConfig.supportEmail,
+            onTap: onSupportEmail,
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: _ContactChip(icon: Icons.email_outlined, label: 'Email', onTap: onEmail),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _ContactChip(icon: Icons.chat_rounded, label: 'WhatsApp', onTap: onWhatsApp),
+          child: _ContactChip(
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete account',
+            subtitle: AppConfig.accountDeletionEmail,
+            onTap: onDeletionEmail,
+          ),
         ),
       ],
     );
@@ -245,11 +253,13 @@ class _ContactStrip extends StatelessWidget {
 class _ContactChip extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String subtitle;
   final VoidCallback onTap;
 
   const _ContactChip({
     required this.icon,
     required this.label,
+    required this.subtitle,
     required this.onTap,
   });
 
@@ -270,12 +280,18 @@ class _ContactChip extends StatelessWidget {
             border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
             child: Column(
               children: [
                 Icon(icon, color: AppColors.primary, size: 22),
                 const SizedBox(height: 6),
                 Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.navy)),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                ),
               ],
             ),
           ),
@@ -343,17 +359,7 @@ class _FaqTileState extends State<_FaqTile> {
   }
 }
 
-Future<void> _launchTel(String phone) async {
-  final uri = Uri.parse('tel:$phone');
-  if (await canLaunchUrl(uri)) await launchUrl(uri);
-}
-
 Future<void> _launchEmail(String email) async {
   final uri = Uri.parse('mailto:$email');
   if (await canLaunchUrl(uri)) await launchUrl(uri);
-}
-
-Future<void> _launchWhatsApp(String phone) async {
-  final uri = Uri.parse('https://wa.me/$phone');
-  if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
 }

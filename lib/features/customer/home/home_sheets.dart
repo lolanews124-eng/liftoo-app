@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/service_location_model.dart';
 import 'booking_duration_options.dart';
@@ -101,9 +102,20 @@ void showSupportSheet(BuildContext context) {
           children: [
             const Text('Support', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 16),
-            _supportTile(ctx, Icons.phone, 'Call us', '1800-123-4567', () => _launchTel('18001234567')),
-            _supportTile(ctx, Icons.email_outlined, 'Email', 'help@liftoo.in', () => _launchEmail('help@liftoo.in')),
-            _supportTile(ctx, Icons.chat_outlined, 'WhatsApp', 'Chat with support', () => _launchWhatsApp('919876543210')),
+            _supportTile(
+              ctx,
+              Icons.email_outlined,
+              'Email support',
+              AppConfig.supportEmail,
+              () => _launchEmail(AppConfig.supportEmail),
+            ),
+            _supportTile(
+              ctx,
+              Icons.delete_outline_rounded,
+              'Delete account',
+              AppConfig.accountDeletionEmail,
+              () => _launchEmail(AppConfig.accountDeletionEmail),
+            ),
           ],
         ),
       ),
@@ -166,21 +178,16 @@ Widget _supportTile(BuildContext ctx, IconData icon, String title, String subtit
   );
 }
 
-Future<void> callAssistant([String phone = '9876543211']) => _launchTel(phone);
-
-Future<void> _launchTel(String phone) async {
-  final uri = Uri.parse('tel:$phone');
+Future<void> callAssistant(String phone) async {
+  final normalized = phone.replaceAll(RegExp(r'\D'), '');
+  if (normalized.length < 10) return;
+  final uri = Uri.parse('tel:$normalized');
   if (await canLaunchUrl(uri)) await launchUrl(uri);
 }
 
 Future<void> _launchEmail(String email) async {
   final uri = Uri.parse('mailto:$email');
   if (await canLaunchUrl(uri)) await launchUrl(uri);
-}
-
-Future<void> _launchWhatsApp(String phone) async {
-  final uri = Uri.parse('https://wa.me/$phone');
-  if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
 class _FaqTile extends StatefulWidget {

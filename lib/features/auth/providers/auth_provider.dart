@@ -142,6 +142,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await ref.read(authRepositoryProvider).logout();
     state = const AuthState();
   }
+
+  Future<void> deleteAccount() async {
+    ref.read(assistantAvailabilityTrackerProvider).stop();
+    await PushNotificationService.instance.clearToken(ref);
+    await ref.read(authRepositoryProvider).deleteAccount();
+    await ref.read(pendingAuthStorageProvider).clearLoginAuth();
+    state = const AuthState();
+  }
 }
 
 final authProvider =

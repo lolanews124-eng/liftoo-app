@@ -1,4 +1,5 @@
 import '../../../core/location/location_service.dart';
+import '../../../core/permissions/app_permissions_service.dart';
 import '../../../core/providers/providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -9,6 +10,9 @@ Future<void> setAssistantOnline(WidgetRef ref, bool targetOnline) async {
   double? lat;
   double? lng;
   if (targetOnline) {
+    if (!await AppPermissionsService.ensureLocationAccess()) {
+      throw Exception('Location permission is required to go online.');
+    }
     final coords = await LocationService.tryCurrentCoords();
     if (coords == null) {
       throw Exception(

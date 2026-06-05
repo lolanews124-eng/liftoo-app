@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/permissions/app_permissions_service.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/gradient_button.dart';
@@ -34,6 +35,7 @@ class _SetupProfileScreenState extends ConsumerState<SetupProfileScreen> {
   }
 
   Future<void> _pickPhoto() async {
+    if (!await AppPermissionsService.ensureMediaAccess()) return;
     final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file == null) return;
     setState(() => _photoName = file.name.isNotEmpty ? file.name : 'photo.jpg');

@@ -7,6 +7,7 @@ import '../../../core/legal/legal_links.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/user_model.dart';
+import '../../../shared/widgets/delete_account_button.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/role_switch_guard.dart';
@@ -133,6 +134,7 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
                     if (context.mounted) context.go('/auth/login');
                   },
                 ),
+                const Center(child: DeleteAccountButton()),
                 const SizedBox(height: 8),
               ]),
             ),

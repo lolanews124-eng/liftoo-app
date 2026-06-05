@@ -53,3 +53,32 @@ String formatNotificationTime(String? iso) {
 String formatNotificationDateTime(String? iso) {
   return formatAppDateTimeIso(iso);
 }
+
+String? notificationActionLabel(Map<String, dynamic> notification) {
+  final type = notification['type'] as String?;
+  final title = (notification['title'] as String? ?? '').toLowerCase();
+
+  switch (type) {
+    case 'new_booking':
+    case 'booking_update':
+    case 'assistant_assigned':
+    case 'assistant_arriving':
+    case 'service_started':
+    case 'booking_cancelled':
+      return 'View bookings';
+    case 'payment':
+    case 'payment_received':
+    case 'payment_completed':
+    case 'earnings_credited':
+      return 'Wallet';
+    case 'referral':
+      return 'Refer & earn';
+    default:
+      if (title.contains('booking') || title.contains('assistant') || title.contains('way')) {
+        return 'View bookings';
+      }
+      if (title.contains('refer')) return 'Refer & earn';
+      if (title.contains('payment')) return 'Wallet';
+      return null;
+  }
+}
