@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import '../../core/utils/app_datetime.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../models/booking_model.dart';
@@ -71,7 +71,7 @@ class BookingListCard extends StatelessWidget {
     final slug = booking.category?.slug;
     final accent = slug != null ? AppColors.categoryColor(slug) : AppColors.primary;
     final personLabel = _personLabel();
-    final dateLabel = DateFormat('MMM d, h:mm a').format(booking.scheduledAt);
+    final dateLabel = formatAppDateTime(booking.scheduledAt, pattern: 'MMM d, h:mm a');
     final amountLabel = _amountLabel();
 
     return Material(

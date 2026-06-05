@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import '../../core/utils/app_datetime.dart';
 import '../../core/theme/app_colors.dart';
 import '../models/booking_model.dart';
 import 'assistant_info.dart';
@@ -94,7 +94,7 @@ Future<void> showBookingDetailSheet(
                     style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 20),
-                  _detailRow(Icons.schedule_rounded, 'Scheduled', DateFormat('EEE, MMM d • h:mm a').format(booking.scheduledAt)),
+                  _detailRow(Icons.schedule_rounded, 'Scheduled', formatAppDateTime(booking.scheduledAt, pattern: 'EEE, MMM d • h:mm a')),
                   _detailRow(Icons.timer_outlined, 'Duration', '${booking.durationMin} minutes'),
                   _detailRow(Icons.store_mall_directory_outlined, 'Venue', booking.venueName),
                   _detailRow(Icons.place_outlined, 'Address', booking.addressFormatted),

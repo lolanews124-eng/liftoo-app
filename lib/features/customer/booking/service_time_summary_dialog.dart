@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_datetime.dart';
 import '../../../shared/models/booking_model.dart';
 
 String formatServiceDuration(Duration d) {
@@ -18,8 +18,10 @@ Future<void> showServiceTimeSummary(BuildContext context, BookingModel booking) 
   final end = booking.serviceCompletedAt;
   final duration = booking.serviceDuration;
   final assistantName = booking.assistant?['name'] as String? ?? 'Your assistant';
-  final timeFmt = DateFormat('h:mm a');
-  final dateFmt = DateFormat('d MMM yyyy');
+  String timeLabel(DateTime? value) =>
+      value == null ? '—' : formatAppDateTime(value, pattern: 'h:mm a');
+  String dateLabel(DateTime? value) =>
+      value == null ? '—' : formatAppDateTime(value, pattern: 'd MMM yyyy');
 
   return showDialog<void>(
     context: context,
@@ -60,9 +62,9 @@ Future<void> showServiceTimeSummary(BuildContext context, BookingModel booking) 
               ),
               child: Column(
                 children: [
-                  if (start != null) _timeRow(Icons.play_circle_outline, 'Started', '${dateFmt.format(start)} • ${timeFmt.format(start)}'),
+                  if (start != null) _timeRow(Icons.play_circle_outline, 'Started', '${dateLabel(start)} • ${timeLabel(start)}'),
                   if (start != null && end != null) const SizedBox(height: 12),
-                  if (end != null) _timeRow(Icons.stop_circle_outlined, 'Ended', '${dateFmt.format(end)} • ${timeFmt.format(end)}'),
+                  if (end != null) _timeRow(Icons.stop_circle_outlined, 'Ended', '${dateLabel(end)} • ${timeLabel(end)}'),
                   if (duration != null) ...[
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),

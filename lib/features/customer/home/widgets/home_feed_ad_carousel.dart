@@ -23,6 +23,8 @@ class _HomeFeedAdCarouselState extends State<HomeFeedAdCarousel> {
   Timer? _autoTimer;
   int _current = 0;
 
+  static const _bannerAspectRatio = 1200 / 500;
+
   @override
   void initState() {
     super.initState();
@@ -78,22 +80,18 @@ class _HomeFeedAdCarouselState extends State<HomeFeedAdCarousel> {
   Widget build(BuildContext context) {
     if (widget.ads.isEmpty) return const SizedBox.shrink();
 
-    final width = MediaQuery.sizeOf(context).width;
-    final bannerHeight = (width * 0.42).clamp(150.0, 190.0);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       child: Column(
         children: [
-          SizedBox(
-            height: bannerHeight,
+          AspectRatio(
+            aspectRatio: _bannerAspectRatio,
             child: PageView.builder(
               controller: _pageController,
               itemCount: widget.ads.length,
               onPageChanged: (i) => setState(() => _current = i),
               itemBuilder: (context, index) => _AdSlide(
                 ad: widget.ads[index],
-                height: bannerHeight,
                 onTap: () => _openAd(context, widget.ads[index]),
               ),
             ),
@@ -125,12 +123,10 @@ class _HomeFeedAdCarouselState extends State<HomeFeedAdCarousel> {
 
 class _AdSlide extends StatelessWidget {
   final HomeFeedAd ad;
-  final double height;
   final VoidCallback onTap;
 
   const _AdSlide({
     required this.ad,
-    required this.height,
     required this.onTap,
   });
 
@@ -140,109 +136,108 @@ class _AdSlide extends StatelessWidget {
     final hasButton =
         (ad.buttonLabel?.trim().isNotEmpty ?? false) && (ad.buttonLink?.trim().isNotEmpty ?? false);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: SizedBox(
-        height: height,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CachedNetworkImage(
-              imageUrl: ad.imageUrl,
-              fit: BoxFit.cover,
-              placeholder: (_, _) => Container(
-                color: AppColors.surface,
-                child: const Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-                  ),
+    return ColoredBox(
+      color: AppColors.surface,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CachedNetworkImage(
+            imageUrl: ad.imageUrl,
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.center,
+            width: double.infinity,
+            placeholder: (_, _) => Container(
+              color: AppColors.surface,
+              child: const Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                 ),
-              ),
-              errorWidget: (_, _, _) => Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.navy, Color(0xFF002A5C)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: const Icon(Icons.image_not_supported_outlined, color: Colors.white54, size: 36),
               ),
             ),
-            DecoratedBox(
-              decoration: BoxDecoration(
+            errorWidget: (_, _, _) => Container(
+              decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.05),
-                    Colors.black.withValues(alpha: 0.15),
-                    Colors.black.withValues(alpha: 0.72),
-                  ],
-                  stops: const [0.0, 0.45, 1.0],
+                  colors: [AppColors.navy, Color(0xFF002A5C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+              ),
+              child: const Icon(Icons.image_not_supported_outlined, color: Colors.white54, size: 36),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.02),
+                  Colors.black.withValues(alpha: 0.12),
+                  Colors.black.withValues(alpha: 0.68),
+                ],
+                stops: const [0.0, 0.5, 1.0],
               ),
             ),
-            if (hasTitle || hasButton)
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (hasTitle)
-                      Expanded(
-                        child: Text(
-                          ad.title!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            height: 1.15,
-                            shadows: [Shadow(color: Colors.black38, blurRadius: 8)],
-                          ),
+          ),
+          if (hasTitle || hasButton)
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 12,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (hasTitle)
+                    Expanded(
+                      child: Text(
+                        ad.title!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                          shadows: [Shadow(color: Colors.black38, blurRadius: 8)],
                         ),
                       ),
-                    if (hasTitle && hasButton) const SizedBox(width: 12),
-                    if (hasButton)
-                      Material(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(14),
-                        elevation: 4,
-                        shadowColor: AppColors.primary.withValues(alpha: 0.45),
-                        child: InkWell(
-                          onTap: onTap,
-                          borderRadius: BorderRadius.circular(14),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  ad.buttonLabel!,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13,
-                                  ),
+                    ),
+                  if (hasTitle && hasButton) const SizedBox(width: 10),
+                  if (hasButton)
+                    Material(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(10),
+                      elevation: 3,
+                      shadowColor: AppColors.primary.withValues(alpha: 0.45),
+                      child: InkWell(
+                        onTap: onTap,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                ad.buttonLabel!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 15),
+                            ],
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
+import '../../../core/utils/app_datetime.dart';
 import '../../../core/layout/screen_safe_padding.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/providers/providers.dart';
@@ -60,17 +60,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   String _formatDate(String? iso) {
-    if (iso == null) return '';
-    try {
-      final dt = DateTime.parse(iso);
-      final now = DateTime.now();
-      if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
-        return 'Today, ${DateFormat('h:mm a').format(dt)}';
-      }
-      return DateFormat('MMM d, h:mm a').format(dt);
-    } catch (_) {
-      return '';
+    final parsed = DateTime.tryParse(iso ?? '');
+    if (parsed == null) return '';
+    if (isAppToday(parsed)) {
+      return 'Today, ${formatAppDateTime(parsed, pattern: 'h:mm a')}';
     }
+    return formatAppDateTime(parsed, pattern: 'MMM d, h:mm a');
   }
 
   @override

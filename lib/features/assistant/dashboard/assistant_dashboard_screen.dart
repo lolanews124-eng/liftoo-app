@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
+import '../../../core/utils/app_datetime.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -732,7 +732,7 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text('₹$earn', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.success, fontSize: 16)),
-                  Text(DateFormat('h:mm a').format(b.scheduledAt), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  Text(formatAppDateTime(b.scheduledAt, pattern: 'h:mm a'), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                 ],
               ),
             ],

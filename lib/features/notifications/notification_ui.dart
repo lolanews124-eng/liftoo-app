@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_datetime.dart';
 
 IconData notificationIcon(String? type) {
   switch (type) {
@@ -38,42 +39,17 @@ Color notificationIconColor(String? type) {
 
 String formatNotificationTime(String? iso) {
   if (iso == null || iso.isEmpty) return '';
-  final dt = DateTime.tryParse(iso);
+  final dt = parseAppTime(iso);
   if (dt == null) return '';
-  final local = dt.toLocal();
-  final now = DateTime.now();
-  final diff = now.difference(local);
+  final now = appNow();
+  final diff = now.difference(dt);
   if (diff.inMinutes < 1) return 'Just now';
   if (diff.inHours < 1) return '${diff.inMinutes}m ago';
   if (diff.inHours < 24) return '${diff.inHours}h ago';
   if (diff.inDays < 7) return '${diff.inDays}d ago';
-  return '${local.day}/${local.month}/${local.year}';
+  return '${dt.day}/${dt.month}/${dt.year}';
 }
 
 String formatNotificationDateTime(String? iso) {
-  if (iso == null || iso.isEmpty) return '';
-  final dt = DateTime.tryParse(iso)?.toLocal();
-  if (dt == null) return '';
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  final h = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-  final ampm = dt.hour >= 12 ? 'PM' : 'AM';
-  final min = dt.minute.toString().padLeft(2, '0');
-  return '${dt.day} ${months[dt.month - 1]} ${dt.year}, $h:$min $ampm';
-}
-
-/// Optional deep-link action label from notification title/type.
-String? notificationActionLabel(Map<String, dynamic> n) {
-  final title = (n['title'] as String? ?? '').toLowerCase();
-  final type = n['type'] as String? ?? '';
-  if (title.contains('booking') ||
-      title.contains('assistant') ||
-      title.contains('way') ||
-      type.contains('booking') ||
-      type.contains('assistant') ||
-      type.contains('service')) {
-    return 'View bookings';
-  }
-  if (title.contains('refer') || type == 'referral') return 'Open referral';
-  if (title.contains('payment') || type.contains('payment')) return 'Open wallet';
-  return null;
+  return formatAppDateTimeIso(iso);
 }

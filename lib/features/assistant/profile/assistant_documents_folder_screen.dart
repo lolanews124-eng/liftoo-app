@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_datetime.dart';
 import '../../../shared/models/assistant_verification_model.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import 'assistant_address_form_sheet.dart';
+import 'assistant_bank_form_sheet.dart';
+import 'verification_doc_preview.dart';
 
 class AssistantDocumentsFolderScreen extends ConsumerWidget {
   final VerificationBundleModel bundle;
@@ -51,7 +53,7 @@ class AssistantDocumentsFolderScreen extends ConsumerWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Verified documents cannot be edited. Contact support if you need changes.',
+                          'Submitted documents are view-only. Re-upload only if admin rejects.',
                           style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.95), height: 1.35, fontSize: 13),
                         ),
                       ),
@@ -87,47 +89,20 @@ class AssistantDocumentsFolderScreen extends ConsumerWidget {
             Text(doc.label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 12),
             _StatusChip(status: doc.status),
-            const SizedBox(height: 16),
-            if (doc.fileUrl != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.insert_drive_file_outlined, color: AppColors.primary),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(doc.fileUrl!, style: const TextStyle(fontWeight: FontWeight.w600))),
-                  ],
-                ),
+            if (doc.uploadedAt != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Submitted: ${formatAppDateTime(doc.uploadedAt!)}',
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 12),
             ],
-            if (doc.type == VerificationDocType.fullAddress && doc.metadata != null) ...[
-              ..._addressDetailRows(AssistantAddressData.fromMetadata(doc.metadata)),
-              const SizedBox(height: 12),
-            ] else if (doc.textValue != null) ...[
-              const Text('Details', style: TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Text(doc.textValue!, style: const TextStyle(height: 1.4)),
-              const SizedBox(height: 12),
-            ],
-            if (doc.metadata != null && doc.type == VerificationDocType.bankDetails) ...[
-              const Text('Bank account', style: TextStyle(fontWeight: FontWeight.w700)),
-              Text('****${(doc.metadata!['accountNumber'] as String?)?.substring(((doc.metadata!['accountNumber'] as String?)?.length ?? 4) - 4)}'),
-              const SizedBox(height: 8),
-              Text('IFSC: ${doc.metadata!['ifsc'] ?? '—'}'),
-              const SizedBox(height: 12),
-            ],
-            if (doc.uploadedAt != null)
-              Text('Submitted: ${DateFormat('d MMM yyyy, h:mm a').format(doc.uploadedAt!)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             if (doc.verifiedAt != null)
-              Text('Verified: ${DateFormat('d MMM yyyy').format(doc.verifiedAt!)}', style: const TextStyle(fontSize: 12, color: AppColors.success)),
-            if (doc.adminNote != null && doc.isRejected) ...[
-              const SizedBox(height: 12),
+              Text(
+                'Verified: ${formatAppDateTime(doc.verifiedAt!, pattern: 'd MMM yyyy')}',
+                style: const TextStyle(fontSize: 12, color: AppColors.success),
+              ),
+            if (doc.isRejected && doc.adminNote != null) ...[
+              const SizedBox(height: 14),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -135,15 +110,65 @@ class AssistantDocumentsFolderScreen extends ConsumerWidget {
                   color: AppColors.error.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text('Admin note: ${doc.adminNote}', style: const TextStyle(color: AppColors.error)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Rejection reason', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.error)),
+                    const SizedBox(height: 4),
+                    Text(doc.adminNote!, style: const TextStyle(color: AppColors.error, height: 1.4)),
+                  ],
+                ),
               ),
             ],
-            const SizedBox(height: 8),
-            const Text('View only — editing is disabled after submission.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            const SizedBox(height: 16),
+            if (doc.type == VerificationDocType.fullAddress && doc.metadata != null) ...[
+              ..._addressDetailRows(AssistantAddressData.fromMetadata(doc.metadata)),
+            ] else if (doc.type == VerificationDocType.bankDetails && doc.metadata != null) ...[
+              ..._bankDetailRows(AssistantBankData.fromMetadata(doc.metadata)),
+            ] else if (doc.textValue != null) ...[
+              const Text('Details', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(doc.textValue!, style: const TextStyle(height: 1.4)),
+            ],
+            if (doc.fileUrl != null && verificationFileIsImage(doc.fileUrl)) ...[
+              const SizedBox(height: 12),
+              VerificationDocImagePreview(imageUrl: doc.fileUrl!),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _bankDetailRows(AssistantBankData bank) {
+    Widget row(String label, String value) {
+      if (value.trim().isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 120,
+              child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+            ),
+            Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, height: 1.35))),
+          ],
+        ),
+      );
+    }
+
+    final account = bank.accountNumber;
+    final masked = account.length > 4 ? '****${account.substring(account.length - 4)}' : account;
+
+    return [
+      const Text('Bank details', style: TextStyle(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 8),
+      row('Name', bank.accountHolderName),
+      row('Bank', bank.bankName),
+      row('Account', masked),
+      row('IFSC', bank.ifsc),
+    ];
   }
 
   List<Widget> _addressDetailRows(AssistantAddressData addr) {
@@ -205,7 +230,7 @@ class _DocumentFolderTile extends StatelessWidget {
                 children: [
                   Text(doc.label, style: const TextStyle(fontWeight: FontWeight.w700)),
                   if (doc.uploadedAt != null)
-                    Text(DateFormat('d MMM yyyy').format(doc.uploadedAt!), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    Text(formatAppDateTime(doc.uploadedAt!, pattern: 'd MMM yyyy'), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 ],
               ),
             ),

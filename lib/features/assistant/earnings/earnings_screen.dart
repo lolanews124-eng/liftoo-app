@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
+import '../../../core/utils/app_datetime.dart';
 import '../../../core/network/error_snackbar.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -442,10 +442,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
   }
 
   String _formatDate(String raw) {
-    try {
-      return DateFormat('MMM d, h:mm a').format(DateTime.parse(raw));
-    } catch (_) {
-      return raw;
-    }
+    final formatted = formatAppDateTimeIso(raw, pattern: 'MMM d, h:mm a');
+    return formatted.isEmpty ? raw : formatted;
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import '../../../core/utils/app_datetime.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 
@@ -47,14 +47,7 @@ class _ReferralScreenState extends ConsumerState<ReferralScreen> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Share message copied!')));
   }
 
-  String _formatDate(String? iso) {
-    if (iso == null) return '';
-    try {
-      return DateFormat('MMM d, yyyy').format(DateTime.parse(iso));
-    } catch (_) {
-      return '';
-    }
-  }
+  String _formatDate(String? iso) => formatAppDateTimeIso(iso, pattern: 'MMM d, yyyy');
 
   @override
   Widget build(BuildContext context) {

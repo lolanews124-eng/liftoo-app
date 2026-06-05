@@ -6,10 +6,10 @@ import '../../../core/network/error_snackbar.dart';
 import '../../../core/providers/providers.dart';
 import '../../../shared/widgets/network_error_state.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/keyboard_aware_scroll.dart';
 import '../../../shared/models/assistant_verification_model.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import 'assistant_address_form_sheet.dart';
+import 'assistant_bank_form_sheet.dart';
 import 'assistant_documents_folder_screen.dart';
 
 class AssistantVerificationScreen extends ConsumerStatefulWidget {
@@ -51,11 +51,11 @@ class _AssistantVerificationScreenState extends ConsumerState<AssistantVerificat
     if (doc.isLocked) {
       if (doc.isPending) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Under admin review — editing is locked until verified or rejected.')),
+          const SnackBar(content: Text('Under admin review — cannot edit right now')),
         );
       } else if (doc.isVerified) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verified documents cannot be edited.')),
+          const SnackBar(content: Text('Already verified — contact support to change')),
         );
       }
       return;
@@ -112,69 +112,32 @@ class _AssistantVerificationScreenState extends ConsumerState<AssistantVerificat
   }
 
   Future<void> _submitBank(VerificationDocumentModel doc) async {
-    final accountCtrl = TextEditingController(text: doc.metadata?['accountNumber'] as String? ?? '');
-    final ifscCtrl = TextEditingController(text: doc.metadata?['ifsc'] as String? ?? '');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: SingleChildScrollView(
-          padding: keyboardInsetPadding(ctx, base: const EdgeInsets.fromLTRB(24, 24, 24, 16)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Bank details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: accountCtrl,
-                keyboardType: TextInputType.number,
-                scrollPadding: keyboardScrollPadding(ctx),
-                decoration: InputDecoration(
-                  labelText: 'Account number',
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: ifscCtrl,
-                textCapitalization: TextCapitalization.characters,
-                scrollPadding: keyboardScrollPadding(ctx),
-                decoration: InputDecoration(
-                  labelText: 'IFSC code',
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-                      child: const Text('Submit'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    final data = await showAssistantBankForm(
+      context,
+      initial: AssistantBankData.fromMetadata(doc.metadata),
     );
-    if (ok != true || accountCtrl.text.trim().isEmpty || ifscCtrl.text.trim().isEmpty) return;
-    await _submit(
-      VerificationDocType.bankDetails,
-      metadata: {'accountNumber': accountCtrl.text.trim(), 'ifsc': ifscCtrl.text.trim().toUpperCase()},
-    );
+    if (data == null || !data.isValid || !mounted) return;
+
+    setState(() => _submitting = true);
+    try {
+      final url = await ref.read(apiClientProvider).uploadImageFile(data.passbookPath!);
+      if (!mounted) return;
+      final bundle = await ref.read(assistantVerificationRepositoryProvider).submitDocument(
+            type: VerificationDocType.bankDetails,
+            fileUrl: url,
+            metadata: data.toMetadata(),
+          );
+      if (mounted) {
+        setState(() => _bundle = bundle);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Submitted for admin verification')),
+        );
+      }
+    } catch (e) {
+      if (mounted) showAppErrorSnackBar(context, e);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   Future<void> _submit(
