@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:permission_handler/permission_handler.dart';
 
@@ -13,18 +11,8 @@ class AppPermissionsService {
     await _request(Permission.notification);
   }
 
-  static Future<bool> ensureMediaAccess() async {
-    if (kIsWeb) return true;
-    final permissions = <Permission>[Permission.camera];
-    if (Platform.isAndroid || Platform.isIOS) {
-      permissions.add(Permission.photos);
-    }
-    for (final permission in permissions) {
-      final granted = await _request(permission);
-      if (!granted) return false;
-    }
-    return true;
-  }
+  /// Gallery/KYC uploads use the system photo picker — no READ_MEDIA_* permission needed.
+  static Future<bool> ensureMediaAccess() async => true;
 
   static Future<bool> ensureLocationAccess() async {
     if (kIsWeb) return true;
