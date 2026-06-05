@@ -6,6 +6,8 @@ import 'initial_route.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/otp_screen.dart';
 import '../../features/auth/presentation/setup_profile_screen.dart';
+import '../../features/auth/presentation/forgot_password_screen.dart';
+import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/auth/presentation/otp_login_args.dart';
 import '../../features/auth/presentation/setup_profile_args.dart';
 import '../../features/role_selection/role_selection_screen.dart';
@@ -57,13 +59,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (loc.startsWith('/review/')) return null;
 
       final isAuth = loc.startsWith('/auth');
+      final isPreAuthFlow = loc == '/auth/otp' ||
+          loc == '/auth/forgot-password' ||
+          loc.startsWith('/auth/reset-password');
+
       if (user == null && !isAuth) return '/auth/login';
 
       if (user != null && !user.profileComplete && loc != '/auth/setup-profile') {
         return '/auth/setup-profile';
       }
 
-      if (user != null && isAuth && loc != '/auth/setup-profile') {
+      if (user != null && isAuth && loc != '/auth/setup-profile' && !isPreAuthFlow) {
         if (user.activeRole == null) return '/role-selection';
         return user.activeRole == 'assistant' ? '/assistant' : '/customer';
       }
@@ -85,7 +91,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/auth/otp',
         pageBuilder: (_, state) => appSlidePage(
           key: state.pageKey,
-          child: OtpScreen(args: state.extra as OtpLoginArgs),
+          child: OtpScreen(args: state.extra as OtpLoginArgs?),
+        ),
+      ),
+      GoRoute(
+        path: '/auth/forgot-password',
+        pageBuilder: (_, state) => appSlidePage(
+          key: state.pageKey,
+          child: const ForgotPasswordScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/auth/reset-password',
+        pageBuilder: (_, state) => appSlidePage(
+          key: state.pageKey,
+          child: ResetPasswordScreen(email: state.extra as String),
         ),
       ),
       GoRoute(

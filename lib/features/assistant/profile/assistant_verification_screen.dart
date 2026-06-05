@@ -75,8 +75,25 @@ class _AssistantVerificationScreenState extends ConsumerState<AssistantVerificat
   Future<void> _submitPhoto(VerificationDocType type) async {
     final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file == null || !mounted) return;
-    final name = file.name.isNotEmpty ? file.name : file.path.split(RegExp(r'[/\\]')).last;
-    await _submit(type, fileUrl: 'upload://$name');
+    setState(() => _submitting = true);
+    try {
+      final url = await ref.read(apiClientProvider).uploadImageFile(file.path);
+      if (!mounted) return;
+      final bundle = await ref.read(assistantVerificationRepositoryProvider).submitDocument(
+            type: type,
+            fileUrl: url,
+          );
+      if (mounted) {
+        setState(() => _bundle = bundle);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Submitted for admin verification')),
+        );
+      }
+    } catch (e) {
+      if (mounted) showAppErrorSnackBar(context, e);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   Future<void> _submitAddress(VerificationDocumentModel doc) async {

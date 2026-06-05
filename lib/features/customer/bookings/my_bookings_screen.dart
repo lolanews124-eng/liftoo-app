@@ -13,7 +13,7 @@ import '../../../shared/widgets/network_error_state.dart';
 import '../../../shared/widgets/skeleton_loader.dart';
 import '../booking/booking_flow.dart';
 import '../booking/cancel_booking_dialog.dart';
-import 'widgets/booking_list_card.dart';
+import '../../../shared/widgets/booking_list_card.dart';
 
 class MyBookingsScreen extends ConsumerStatefulWidget {
   const MyBookingsScreen({super.key});
@@ -170,7 +170,7 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen> with Single
               itemBuilder: (context, i) {
                 final b = list[i];
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: BookingListCard(
                     booking: b,
                     tabStatus: status,

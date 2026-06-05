@@ -10,7 +10,6 @@ import '../../../shared/widgets/gradient_button.dart';
 import '../../../shared/widgets/keyboard_aware_scroll.dart';
 import '../providers/auth_provider.dart';
 import 'auth_navigation.dart';
-import 'otp_login_args.dart';
 import 'widgets/login_brand_header.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -91,7 +90,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final result = await ref.read(authProvider.notifier).signInWithEmail(email, password);
       if (!mounted) return;
       if (result.requiresOtp) {
-        context.push('/auth/otp', extra: OtpLoginArgs(email: email, password: password));
+        await ref.read(pendingAuthStorageProvider).saveLoginAuth(email: email, password: password);
+        context.go('/auth/otp');
       } else if (result.user != null) {
         navigateAfterAuth(context, result.user!);
       }
@@ -154,7 +154,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _loading ? null : () => context.push('/auth/forgot-password'),
+                        child: const Text(
+                          'Forgot password?',
+                          style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     Material(
                       color: Colors.transparent,
                       child: InkWell(

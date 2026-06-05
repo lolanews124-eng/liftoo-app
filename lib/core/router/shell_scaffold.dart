@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/booking/booking_block_guard.dart';
+import '../../features/assistant/shared/assistant_home_refresh_provider.dart';
 import '../theme/app_colors.dart';
 import 'back_navigation.dart';
 
@@ -20,7 +21,7 @@ class ShellScaffold extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (isAssistant) return _assistantShell(context);
+    if (isAssistant) return _assistantShell(context, ref);
     return _customerShell(context, ref);
   }
 
@@ -102,7 +103,7 @@ class ShellScaffold extends ConsumerWidget {
     );
   }
 
-  Widget _assistantShell(BuildContext context) {
+  Widget _assistantShell(BuildContext context, WidgetRef ref) {
     return TabShellBackScope(
       navigationShell: navigationShell,
       homeBranchIndex: _branchOffset,
@@ -112,7 +113,10 @@ class ShellScaffold extends ConsumerWidget {
         body: SafeArea(bottom: false, child: navigationShell),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _localIndex,
-          onDestinationSelected: (i) => navigationShell.goBranch(_branchOffset + i),
+          onDestinationSelected: (i) {
+            navigationShell.goBranch(_branchOffset + i);
+            refreshAssistantHome(ref);
+          },
           backgroundColor: Colors.white,
           indicatorColor: AppColors.primaryLight,
           height: 64,

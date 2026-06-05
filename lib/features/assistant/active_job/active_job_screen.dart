@@ -11,6 +11,7 @@ import '../../../shared/widgets/keyboard_aware_scroll.dart';
 import '../../../shared/widgets/liftoo_card.dart';
 import '../../booking/shared/booking_realtime.dart';
 import '../shared/assistant_job_location_tracker.dart';
+import '../shared/assistant_home_refresh_provider.dart';
 import 'widgets/assistant_job_steps.dart';
 
 class ActiveJobScreen extends ConsumerStatefulWidget {
@@ -111,7 +112,10 @@ class _ActiveJobScreenState extends ConsumerState<ActiveJobScreen> {
         assistantEarning: result.assistantEarning,
         paymentConfirmOtp: result.booking.paymentConfirmOtp,
       );
-      if (mounted) context.go('/assistant');
+      if (mounted) {
+        refreshAssistantHome(ref);
+        context.go('/assistant');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

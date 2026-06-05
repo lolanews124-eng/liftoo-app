@@ -11,6 +11,8 @@ import '../shared/assistant_online_confirm.dart';
 import '../requests/assistant_booking_request_flow.dart';
 import '../requests/booking_request_popup.dart';
 import '../shared/assistant_online_service.dart';
+import '../shared/assistant_home_refresh_provider.dart';
+import '../../../core/realtime/socket_service.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/widgets/skeleton_loader.dart';
@@ -27,14 +29,35 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
   BookingModel? _activeJob;
   List<BookingModel> _nearbyRequests = [];
   bool _loading = true;
+  void Function(dynamic)? _bookingUpdatedHandler;
 
   @override
   void initState() {
     super.initState();
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _attachBookingListener());
+  }
+
+  @override
+  void dispose() {
+    _detachBookingListener();
+    super.dispose();
   }
 
   bool _initialized = false;
+
+  void _attachBookingListener() {
+    _detachBookingListener();
+    _bookingUpdatedHandler = (_) => _load(silent: true);
+    ref.read(socketServiceProvider).on('booking:updated', _bookingUpdatedHandler!);
+  }
+
+  void _detachBookingListener() {
+    if (_bookingUpdatedHandler != null) {
+      ref.read(socketServiceProvider).off('booking:updated', _bookingUpdatedHandler);
+      _bookingUpdatedHandler = null;
+    }
+  }
 
   Future<void> _load({bool silent = false}) async {
     if (!silent && !_initialized) setState(() => _loading = true);
@@ -80,7 +103,10 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
     HapticFeedback.mediumImpact();
     try {
       final accepted = await ref.read(bookingRepositoryProvider).acceptBooking(booking.id);
-      if (mounted) context.push('/assistant/active/${accepted.id}');
+      if (mounted) {
+        await context.push('/assistant/active/${accepted.id}');
+        await _load(silent: true);
+      }
     } catch (e) {
       if (mounted) showAppErrorSnackBar(context, e);
       await _load(silent: true);
@@ -95,20 +121,28 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
     await _load(silent: true);
   }
 
-  String _statusLabel(String status) => switch (status) {
-        'searching' => 'Searching',
-        'assigned' => 'Assigned',
-        'arriving' => 'On the way',
-        'started' => 'In progress',
-        _ => status.replaceAll('_', ' '),
-      };
+  String _statusLabel(BookingModel job) {
+    if (job.isPaymentPending) return 'Payment pending';
+    return switch (job.status) {
+      'searching' => 'Searching',
+      'assigned' => 'Assigned',
+      'arriving' => 'On the way',
+      'started' => 'In progress',
+      'completed' => 'Completed',
+      _ => job.status.replaceAll('_', ' '),
+    };
+  }
 
-  Color _statusColor(String status) => switch (status) {
-        'arriving' => AppColors.primary,
-        'started' => AppColors.success,
-        'assigned' => AppColors.warning,
-        _ => AppColors.textSecondary,
-      };
+  Color _statusColor(BookingModel job) {
+    if (job.isPaymentPending) return AppColors.warning;
+    return switch (job.status) {
+      'arriving' => AppColors.primary,
+      'started' => AppColors.success,
+      'assigned' => AppColors.warning,
+      'completed' => AppColors.success,
+      _ => AppColors.textSecondary,
+    };
+  }
 
   List<Map<String, dynamic>> get _recentEarnings {
     final history = _earnings?['history'] as List<dynamic>? ?? [];
@@ -117,6 +151,11 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(assistantHomeRefreshProvider, (_, __) {
+      _load(silent: true);
+      _attachBookingListener();
+    });
+
     final user = ref.watch(authProvider).user;
     final isOnline = user?.isOnline ?? false;
     final ap = user?.assistantProfile;
@@ -508,13 +547,19 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Active job', trailing: _statusBadge(_statusLabel(job.status), _statusColor(job.status))),
+          _sectionTitle(
+            job.isPaymentPending ? 'Awaiting payment' : 'Active job',
+            trailing: _statusBadge(_statusLabel(job), _statusColor(job)),
+          ),
           const SizedBox(height: 12),
           Material(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
             child: InkWell(
-              onTap: () => context.push('/assistant/active/${job.id}'),
+              onTap: () async {
+                await context.push('/assistant/active/${job.id}');
+                if (mounted) await _load(silent: true);
+              },
               borderRadius: BorderRadius.circular(22),
               child: Ink(
                 decoration: BoxDecoration(
@@ -583,13 +628,19 @@ class _AssistantDashboardScreenState extends ConsumerState<AssistantDashboardScr
                                 ),
                               ),
                               FilledButton(
-                                onPressed: () => context.push('/assistant/active/${job.id}'),
+                                onPressed: () async {
+                                  await context.push('/assistant/active/${job.id}');
+                                  if (mounted) await _load(silent: true);
+                                },
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
+                                  backgroundColor: job.isPaymentPending ? AppColors.warning : AppColors.primary,
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 ),
-                                child: const Text('Open', style: TextStyle(fontWeight: FontWeight.w700)),
+                                child: Text(
+                                  job.isPaymentPending ? 'Collect' : 'Open',
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                ),
                               ),
                             ],
                           ),

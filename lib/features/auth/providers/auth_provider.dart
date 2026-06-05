@@ -53,18 +53,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<LoginResult> signInWithEmail(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
     try {
       final result = await ref.read(authRepositoryProvider).loginWithEmail(email, password);
       if (!result.requiresOtp && result.user != null) {
         state = AuthState(user: result.user, isLoading: false);
+        await ref.read(pendingAuthStorageProvider).clearLoginAuth();
         await PushNotificationService.instance.syncAfterLogin(ref);
-      } else {
-        state = state.copyWith(isLoading: false);
       }
       return result;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: NetworkErrors.userMessage(e));
+      state = state.copyWith(error: NetworkErrors.userMessage(e));
       rethrow;
     }
   }
@@ -79,7 +77,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? referralCode,
     required String password,
   }) async {
-    state = state.copyWith(isLoading: true);
     try {
       final result = await ref.read(authRepositoryProvider).verifyEmailOtp(
             email,
@@ -87,12 +84,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
             referralCode: referralCode,
           );
       state = AuthState(user: result.user, isLoading: false);
+      await ref.read(pendingAuthStorageProvider).clearLoginAuth();
       await PushNotificationService.instance.syncAfterLogin(ref);
       return result;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: NetworkErrors.userMessage(e));
+      state = state.copyWith(error: NetworkErrors.userMessage(e));
       rethrow;
     }
+  }
+
+  Future<void> sendPasswordResetOtp(String email) async {
+    await ref.read(authRepositoryProvider).sendPasswordResetOtp(email);
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    await ref.read(authRepositoryProvider).resetPassword(
+          email: email,
+          otp: otp,
+          newPassword: newPassword,
+        );
   }
 
   Future<void> setRole(AppRole role) async {
@@ -124,6 +138,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     ref.read(assistantAvailabilityTrackerProvider).stop();
     await PushNotificationService.instance.clearToken(ref);
+    await ref.read(pendingAuthStorageProvider).clearLoginAuth();
     await ref.read(authRepositoryProvider).logout();
     state = const AuthState();
   }

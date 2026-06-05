@@ -14,9 +14,9 @@ import 'auth_navigation.dart';
 import 'otp_login_args.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
-  final OtpLoginArgs args;
+  final OtpLoginArgs? args;
 
-  const OtpScreen({super.key, required this.args});
+  const OtpScreen({super.key, this.args});
 
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
@@ -27,11 +27,34 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   bool _resending = false;
   int _resendSeconds = 30;
   String _otp = '';
+  OtpLoginArgs? _resolvedArgs;
+  bool _checkingArgs = true;
 
   @override
   void initState() {
     super.initState();
     _startResendTimer();
+    _resolveArgs();
+  }
+
+  Future<void> _resolveArgs() async {
+    if (widget.args != null) {
+      setState(() {
+        _resolvedArgs = widget.args;
+        _checkingArgs = false;
+      });
+      return;
+    }
+    final pending = await ref.read(pendingAuthStorageProvider).peekLoginAuth();
+    if (!mounted) return;
+    if (pending == null) {
+      context.go('/auth/login');
+      return;
+    }
+    setState(() {
+      _resolvedArgs = OtpLoginArgs(email: pending.email, password: pending.password);
+      _checkingArgs = false;
+    });
   }
 
   void _startResendTimer() {
@@ -44,12 +67,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   Future<void> _resend() async {
-    if (_resendSeconds > 0) return;
+    final args = _resolvedArgs;
+    if (args == null || _resendSeconds > 0) return;
     setState(() => _resending = true);
     try {
       await ref.read(authProvider.notifier).resendEmailOtp(
-            widget.args.email,
-            widget.args.password,
+            args.email,
+            args.password,
           );
       if (mounted) {
         setState(() => _resendSeconds = 30);
@@ -68,16 +92,17 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   Future<void> _verify() async {
-    if (_otp.length < 6) return;
+    final args = _resolvedArgs;
+    if (args == null || _otp.length < 6) return;
     HapticFeedback.mediumImpact();
     setState(() => _loading = true);
     try {
       final referralCode = await ref.read(referralStorageProvider).consumePendingCode();
       final result = await ref.read(authProvider.notifier).verifyEmailOtp(
-            widget.args.email,
+            args.email,
             _otp,
             referralCode: referralCode,
-            password: widget.args.password,
+            password: args.password,
           );
       if (!mounted) return;
       navigateAfterAuth(context, result.user);
@@ -99,6 +124,15 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checkingArgs || _resolvedArgs == null) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
+    final email = _resolvedArgs!.email;
+
     return Scaffold(
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: true,
@@ -106,7 +140,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         backgroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () => context.go('/auth/login'),
         ),
       ),
       body: KeyboardAwareScroll(
@@ -125,7 +159,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 children: [
                   const TextSpan(text: 'Enter the 6-digit code sent to '),
                   TextSpan(
-                    text: widget.args.email,
+                    text: email,
                     style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.charcoal),
                   ),
                 ],

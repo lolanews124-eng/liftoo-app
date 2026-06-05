@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
+
+import '../../../core/layout/screen_safe_padding.dart';
 import '../../../core/network/network_errors.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
 import '../../../shared/widgets/booking_detail_sheet.dart';
+import '../../../shared/widgets/booking_list_card.dart';
 import '../../../shared/widgets/empty_state.dart';
-import '../../../shared/widgets/liftoo_card.dart';
 import '../../../shared/widgets/network_error_state.dart';
 import '../../../shared/widgets/skeleton_loader.dart';
 
@@ -50,6 +51,11 @@ class _AssistantJobsScreenState extends ConsumerState<AssistantJobsScreen> with 
         _ => null,
       };
 
+  String _tabStatus(String filter) => switch (filter) {
+        'active' => 'upcoming',
+        _ => filter,
+      };
+
   Future<void> _load(String filter) async {
     try {
       final list = await ref.read(bookingRepositoryProvider).getBookings(
@@ -71,20 +77,31 @@ class _AssistantJobsScreenState extends ConsumerState<AssistantJobsScreen> with 
   }
 
   void _openDetail(BookingModel b) {
+    String? primaryLabel;
+    VoidCallback? primaryAction;
+
+    if (b.isActive || b.isPaymentPending) {
+      primaryLabel = b.isPaymentPending ? 'Collect payment' : 'Open active job';
+      primaryAction = () => context.push('/assistant/active/${b.id}');
+    }
+
     showBookingDetailSheet(
       context,
       booking: b,
       isAssistantView: true,
-      onPrimaryAction: b.isActive ? () => context.push('/assistant/active/${b.id}') : null,
-      primaryActionLabel: b.isActive ? 'Open active job' : null,
+      onPrimaryAction: primaryAction,
+      primaryActionLabel: primaryLabel,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('My Jobs'),
+        title: const Text('My Jobs', style: TextStyle(fontWeight: FontWeight.w800)),
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
         actions: [
           IconButton(
             tooltip: 'New requests',
@@ -92,14 +109,22 @@ class _AssistantJobsScreenState extends ConsumerState<AssistantJobsScreen> with 
             onPressed: () => context.push('/assistant/nearby-requests'),
           ),
         ],
-        bottom: TabBar(
-          controller: _tabs,
-          labelColor: AppColors.primary,
-          tabs: const [
-            Tab(text: 'Active'),
-            Tab(text: 'Complete'),
-            Tab(text: 'Cancelled'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: TabBar(
+            controller: _tabs,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textSecondary,
+            indicatorColor: AppColors.primary,
+            indicatorWeight: 3,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            tabs: const [
+              Tab(text: 'Active'),
+              Tab(text: 'Complete'),
+              Tab(text: 'Cancelled'),
+            ],
+          ),
         ),
       ),
       body: TabBarView(
@@ -123,77 +148,20 @@ class _AssistantJobsScreenState extends ConsumerState<AssistantJobsScreen> with 
             );
           }
           return RefreshIndicator(
+            color: AppColors.primary,
             onRefresh: () => _load(filter),
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: shellScrollPadding(context, top: 12),
               itemCount: list.length,
               itemBuilder: (_, i) {
                 final b = list[i];
-                final statusColor = bookingStatusColor(b.status);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: LiftooCard(
+                  child: BookingListCard(
+                    booking: b,
+                    tabStatus: _tabStatus(filter),
+                    isAssistantView: true,
                     onTap: () => _openDetail(b),
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                b.category?.name ?? 'Service',
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: statusColor.withValues(alpha: 0.35)),
-                              ),
-                              child: Text(
-                                formatBookingStatusLabel(b.status),
-                                style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 11),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          b.venueName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            const Icon(Icons.schedule, size: 14, color: AppColors.textSecondary),
-                            const SizedBox(width: 4),
-                            Text(
-                              DateFormat('MMM d, h:mm a').format(b.scheduledAt),
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                            ),
-                            const Spacer(),
-                            Text(
-                              '₹${b.totalAmount.toStringAsFixed(0)}',
-                              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.navy),
-                            ),
-                          ],
-                        ),
-                        if (b.customer != null) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Customer: ${b.customer!['name']}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ],
-                    ),
                   ),
                 );
               },

@@ -374,16 +374,6 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
               ),
             ),
           ),
-          if (_step == 1 && _selectedCategory != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: AssistantAvailabilityStrip(
-                loading: _assistantsLoading,
-                count: _nearbyWithinRadius.length,
-                matchRadiusKm: _matchRadiusKm,
-                onRetry: _loadNearbyAssistants,
-              ),
-            ),
           if (_selectedCategory != null && _step < 2) _buildPriceBar(),
           SafeBottomBar(
             padding: EdgeInsets.fromLTRB(20, _selectedCategory != null ? 12 : 20, 20, 20),
@@ -726,6 +716,14 @@ class _BookingWizardScreenState extends ConsumerState<BookingWizardScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        AssistantAvailabilityStrip(
+          loading: _assistantsLoading,
+          count: onMap.length,
+          matchRadiusKm: _matchRadiusKm,
+          onRetry: _loadNearbyAssistants,
+        ),
+        const SizedBox(height: 8),
       ],
     );
   }

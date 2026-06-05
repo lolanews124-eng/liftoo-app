@@ -106,6 +106,24 @@ class AuthRepository {
     }
   }
 
+  Future<void> sendPasswordResetOtp(String email) async {
+    await _api.post('/api/v1/auth/password/forgot', data: {
+      'email': email.trim(),
+    });
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    await _api.post('/api/v1/auth/password/reset', data: {
+      'email': email.trim(),
+      'otp': otp,
+      'newPassword': newPassword,
+    });
+  }
+
   Future<void> logout() async {
     await _setAssistantOfflineBeforeClear();
     _socket.disconnect();

@@ -39,14 +39,21 @@ class HomeFeedRepository {
 
   HomeFeedRepository(this._api);
 
-  Future<HomeFeedAd?> getActiveAd() async {
+  Future<List<HomeFeedAd>> getActiveAds() async {
     try {
       final res = await _api.get<Map<String, dynamic>>('/api/v1/home-feed/ad');
+      final rawAds = res['ads'];
+      if (rawAds is List) {
+        return rawAds
+            .whereType<Map<String, dynamic>>()
+            .map(HomeFeedAd.fromJson)
+            .toList();
+      }
       final ad = res['ad'];
-      if (ad is! Map<String, dynamic>) return null;
-      return HomeFeedAd.fromJson(ad);
+      if (ad is Map<String, dynamic>) return [HomeFeedAd.fromJson(ad)];
+      return [];
     } catch (_) {
-      return null;
+      return [];
     }
   }
 }

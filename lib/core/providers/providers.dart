@@ -4,6 +4,7 @@ import '../network/connectivity_service.dart';
 import '../realtime/socket_service.dart';
 import '../storage/token_storage.dart';
 import '../storage/referral_storage.dart';
+import '../storage/pending_auth_storage.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/assistant/data/assistant_verification_repository.dart';
 import '../../features/booking/data/booking_repository.dart';
@@ -20,6 +21,8 @@ import '../../features/customer/home/data/home_feed_repository.dart';
 final tokenStorageProvider = Provider((ref) => TokenStorage());
 
 final referralStorageProvider = Provider((ref) => ReferralStorage());
+
+final pendingAuthStorageProvider = Provider((ref) => PendingAuthStorage());
 
 final connectivityServiceProvider = Provider((ref) => ConnectivityService());
 

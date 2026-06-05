@@ -17,7 +17,7 @@ import 'widgets/home_hero_carousel.dart';
 import 'widgets/home_quick_book_card.dart';
 import 'widgets/home_referral_banner.dart';
 import 'widgets/home_services_strip.dart';
-import 'widgets/home_feed_ad_banner.dart';
+import 'widgets/home_feed_ad_carousel.dart';
 import 'data/home_feed_repository.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
@@ -31,7 +31,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   List<ServiceCategoryModel> _categories = [];
   BookingModel? _blockingBooking;
   int? _referralReward;
-  HomeFeedAd? _homeAd;
+  List<HomeFeedAd> _homeAds = [];
   bool _loading = true;
 
   ServiceLocationModel? _selectedLocation;
@@ -94,13 +94,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
         bookingRepo.getCustomerBlockingBooking(),
         walletRepo.getNotifications(),
         walletRepo.getReferrals(),
-        ref.read(homeFeedRepositoryProvider).getActiveAd(),
+        ref.read(homeFeedRepositoryProvider).getActiveAds(),
       ]);
       final cats = results[0] as List<ServiceCategoryModel>;
       final blocking = results[1] as BookingModel?;
       final notifs = results[2] as List<dynamic>;
       final referralInfo = results[3] as Map<String, dynamic>;
-      final homeAd = results[4] as HomeFeedAd?;
+      final homeAds = results[4] as List<HomeFeedAd>;
       final reward = (referralInfo['rewardPerReferral'] as num?)?.toInt();
       if (mounted) {
         ref.invalidate(customerBlockingBookingProvider);
@@ -112,7 +112,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
           }
           _blockingBooking = blocking;
           _referralReward = reward;
-          _homeAd = homeAd;
+          _homeAds = homeAds;
           ref.read(unreadNotificationCountProvider.notifier).state =
               notifs.where((n) => (n as Map)['readAt'] == null).length;
           _loading = false;
@@ -185,7 +185,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                               rewardAmount: _referralReward!,
                               onTap: () => context.push('/referral'),
                             ),
-                          if (_homeAd != null) HomeFeedAdBanner(ad: _homeAd!),
+                          if (_homeAds.isNotEmpty) HomeFeedAdCarousel(ads: _homeAds),
                           const SizedBox(height: 100),
                         ],
                       ),
